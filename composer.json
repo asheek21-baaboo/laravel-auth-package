@@ -1,0 +1,60 @@
+{
+    "name": "baaboo/internal-tool-composer-auth-package",
+    "description": "Shared SSO authentication package for internal Laravel tools. Validates IdP-issued JWTs, protects routes, and exposes the /me endpoint.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+        "firebase/php-jwt": "^6.0",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "mockery/mockery": "^1.6",
+        "laravel/pint": "^1.27",
+        "larastan/larastan": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Baaboo\\InternalToolComposerAuthPackage\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Baaboo\\InternalToolComposerAuthPackage\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Baaboo\\InternalToolComposerAuthPackage\\AuthServiceProvider"
+            ],
+            "aliases": {
+                "CurrentUser": "Baaboo\\InternalToolComposerAuthPackage\\Facades\\CurrentUser"
+            }
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/pint"
+    },
+    "authors": [
+        {
+            "name": "Mohammed Asheek",
+            "email": "mohammed.asheek@baaboo.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}

@@ -488,7 +488,7 @@ class AuthMiddleware
         }
 
         // Hydrate the CurrentUserService with the validated claims
-        // so controllers can call CurrentUser::id(), CurrentUser::can(), etc.
+        // so controllers can call CurrentUser::id(), CurrentUser::email(), etc.
         $this->currentUser->setFromClaims($claims);
 
         return $next($request);
@@ -570,47 +570,6 @@ class CurrentUserService
     }
 
     /**
-     * Check whether the authenticated user holds a given permission.
-     *
-     * The permissions array is resolved by the local project's /me endpoint
-     * (MeController). This method checks against the resolved array.
-     * The wildcard permission "*" grants access to everything.
-     */
-    public function can(string $permission): bool
-    {
-        $permissions = $this->permissions();
-
-        return in_array('*', $permissions, true)
-            || in_array($permission, $permissions, true);
-    }
-
-    /**
-     * Resolved permissions array from the local project DB.
-     * Set after /me is called. Defaults to empty array.
-     *
-     * @return string[]
-     */
-    public function permissions(): array
-    {
-        return $this->claims?->permissions ?? [];
-    }
-
-    /**
-     * Set the resolved permissions on the claims object.
-     * Called by MeController after resolving local project permissions.
-     *
-     * @param string[] $permissions
-     */
-    public function setPermissions(array $permissions): void
-    {
-        if ($this->claims === null) {
-            return;
-        }
-
-        $this->claims->permissions = $permissions;
-    }
-
-    /**
      * Return all raw claims. Useful for debugging or logging.
      */
     public function all(): ?stdClass
@@ -651,9 +610,6 @@ use Illuminate\Support\Facades\Facade;
  * @method static string   globalRole()
  * @method static string   projectId()
  * @method static string   role()
- * @method static bool     can(string $permission)
- * @method static string[] permissions()
- * @method static void     setPermissions(array $permissions)
  *
  * @see \Company\Auth\CurrentUserService
  */
@@ -672,9 +628,7 @@ class CurrentUser extends Facade
 
 **File:** `src/Http/Controllers/MeController.php`
 
-**Goal:** Auto-registered `GET /me` endpoint. Returns the authenticated user's name, role, and resolved permissions. This is the single contract shape all projects return — it must never change.
-
-At this stage the controller returns what is available from the JWT claims. In consuming projects, they will extend this by resolving local permissions from their own DB. The package provides the base — projects hook in via the `CurrentUserService::setPermissions()` method or by overriding the controller binding if needed.
+**Goal:** Auto-registered `GET /me` endpoint. Returns `name`, `role`, and a minimal `permissions` array derived **only** from JWT `project_role` (`["*"]` for `admin`, otherwise `[]`). Application-level permission matrices, gates, and policies are **not** part of this package — each consuming project implements those on its own (separate routes, services, or an overridden controller binding if you replace `/me`).
 
 ```php
 <?php
@@ -700,15 +654,18 @@ class MeController extends Controller
      * {
      *   "name":        string,
      *   "role":        string,
-     *   "permissions": string[]   — ["*"] for admin, named permissions otherwise
+     *   "permissions": string[]   — ["*"] only when JWT project_role is admin; otherwise []
      * }
      */
     public function __invoke(): JsonResponse
     {
+        $role = $this->currentUser->role();
+        $permissions = $role === 'admin' ? ['*'] : [];
+
         return response()->json([
             'name'        => $this->currentUser->email(), // Replace with name claim when IdP provides it
-            'role'        => $this->currentUser->role(),
-            'permissions' => $this->currentUser->permissions(),
+            'role'        => $role,
+            'permissions' => $permissions,
         ]);
     }
 }
@@ -860,7 +817,7 @@ Add `tests/fixtures/` to the repo. Sign tokens in tests using `firebase/php-jwt`
 ```
 ✓ GET /me returns 401 when unauthenticated
 ✓ GET /me returns 200 with correct shape when authenticated
-✓ GET /me response contains 'name', 'role', 'permissions' keys
+✓ GET /me response contains 'name', 'role', 'permissions' keys (permissions are only [] or ["*"] from project_role)
 ✓ GET /me returns permissions as ["*"] when project_role is admin
 ```
 
@@ -883,10 +840,6 @@ parameters:
     # Testbench bootstraps a full app, so we need to tell PHPStan about it
     bootstrapFiles:
         - vendor/autoload.php
-
-    ignoreErrors:
-        # Facade magic methods are resolved at runtime — safe to ignore
-        - '#Call to an undefined method Illuminate\\Support\\Facades\\.*#'
 ```
 
 Run analysis:
@@ -974,7 +927,6 @@ Hit the route with a valid JWT from the IdP. Confirm:
 - ✅ No token → 401
 - ✅ Expired token → 401
 - ✅ `GET /me` returns the correct shape
-- ✅ `CurrentUser::can('some.permission')` works correctly
 
 ### 12.3 — Final checklist before v1.0.0 is declared done
 
@@ -995,9 +947,9 @@ Hit the route with a valid JWT from the IdP. Confirm:
 
 Once this package is stable and integrated into the first tool, Phase 2 work begins — but that is a separate build plan:
 
-- Per-project `roles` and `permissions` tables (in consuming projects)
+- Per-project authorization (roles, permission tables, policies) in consuming projects only
 - Role management UI (in consuming projects)
-- Updated `/me` to resolve dynamic permission arrays (partial package update)
+- Richer `/me` payloads or dedicated permission APIs, if a tool needs them (consuming project code)
 - `@company/auth` npm package for React and Vue frontends
 - Token revocation on user deactivation (IdP work)
 

@@ -20,6 +20,7 @@ final class AuthServiceProvider extends ServiceProvider
                 idpUrl: config('company-auth.idp_url'),
                 cacheTtl: config('company-auth.cache_ttl', 3600),
                 cache: $app['cache']->store(),
+                jwksPath: config('company-auth.jwks_path'),
             );
         });
 

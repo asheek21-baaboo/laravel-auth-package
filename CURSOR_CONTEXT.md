@@ -37,7 +37,7 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
         │  (HR Portal, CRM, Ops, etc.)   │
         │  - Never store passwords       │
         │  - Trust IdP for identity      │
-        │  - Own their domain permissions│
+        │  - Own their authorization model  │
         └────────────────────────────────┘
 ```
 
@@ -80,32 +80,21 @@ Tokens are RS256-signed JWTs issued by the IdP. The package validates these toke
 
 ## The `/me` Response Contract
 
-Every internal tool's `/me` endpoint (auto-registered by this package) must return this exact shape. This contract must **never** be changed per project.
+The package auto-registers `GET /me` and returns JSON with **identity and coarse `project_role` from the JWT**. Keys and types are stable:
 
 ```json
 {
-    "name": "Jane Smith",
+    "name": "jane@company.com",
     "role": "manager",
-    "permissions": ["reports.view", "reports.export", "users.view"]
+    "permissions": []
 }
 ```
 
-For admin roles, `permissions` is always `["*"]`.
+- **`name`** — Currently the user's email (until the IdP adds a dedicated display-name claim).
+- **`role`** — The JWT `project_role` claim (`admin`, `manager`, `editor`, `viewer`, etc.).
+- **`permissions`** — **Not** your application's permission list. The package only sets `["*"]` when `project_role` is `admin`, and `[]` otherwise. Named capabilities (for example `reports.export`), policies, gates, and database-backed roles are **defined and enforced only in each consuming project**; this package does not resolve them, store them, or expose helpers like `CurrentUser::can()`.
 
----
-
-## Permission Model (Two Layers)
-
-### Layer 1 — Portal Access (IdP-controlled)
-- Stored in `project_user` pivot on the IdP
-- The `project_role` claim in the JWT carries the coarse role string: `admin`, `manager`, `editor`, `viewer`
-- This package reads `project_role` from the token
-
-### Layer 2 — Project Permissions (per tool, not this package's concern)
-- Each project owns its own `roles`, `permissions`, `permission_role`, `role_user` tables
-- `admin` role is seeded with `["*"]` wildcard — cannot be deleted or modified
-- All other roles are runtime-created by project admins
-- The `/me` endpoint this package provides resolves the final permissions array from the local project DB
+**IdP vs tool:** The IdP issues the JWT with `project_role` for portal/tool access at a coarse level. Each internal tool owns fine-grained authorization (tables, UI, checks) independently of this package.
 
 ---
 
@@ -130,6 +119,7 @@ sso-composer-auth-package/
 │   ├── Unit/
 │   │   └── TokenValidatorTest.php
 │   └── Feature/
+│       ├── AuthMiddlewareTest.php
 │       └── MeEndpointTest.php
 └── config/
     └── company-auth.php               # Publishable config (IDP_URL, cache TTL, etc.)
@@ -232,10 +222,9 @@ class DashboardController extends Controller
 {
     public function __invoke()
     {
-        $userId   = CurrentUser::id();
-        $email    = CurrentUser::email();
-        $role     = CurrentUser::role();
-        $canExport = CurrentUser::can('reports.export');
+        $userId = CurrentUser::id();
+        $email  = CurrentUser::email();
+        $role   = CurrentUser::role();
     }
 }
 ```
@@ -262,7 +251,7 @@ That is all. No token parsing, no signature verification, no `/me` controller to
 ## Security Rules (Non-Negotiable)
 
 - Tokens are **always** stored in `httpOnly` cookies — never in `localStorage` or accessible to JS
-- The `admin` role always returns `["*"]` and can **never** be deleted or modified via API
+- Consuming projects must enforce in-app authorization; the JWT only supplies coarse `project_role` from the IdP
 - HTTPS is enforced across all services; HSTS headers must be set
 - Every token event must be logged with actor, IP, user agent, and timestamp
 - JWT signing keys are rotatable without downtime via the JWKS endpoint

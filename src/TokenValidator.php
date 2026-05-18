@@ -53,18 +53,14 @@ class TokenValidator
      */
     private function getPublicKeys(): array
     {
-        $cached = $this->cache->get(self::CACHE_KEY);
+        $jwks = $this->cache->get(self::CACHE_KEY);
 
-        if ($cached !== null) {
-            return $cached;
+        if ($jwks === null) {
+            $jwks = $this->fetchJwks();
+            $this->cache->put(self::CACHE_KEY, $jwks, $this->cacheTtl);
         }
 
-        $jwks = $this->fetchJwks();
-        $keys = JWK::parseKeySet($jwks);
-
-        $this->cache->put(self::CACHE_KEY, $keys, $this->cacheTtl);
-
-        return $keys;
+        return JWK::parseKeySet($jwks);
     }
 
     /**

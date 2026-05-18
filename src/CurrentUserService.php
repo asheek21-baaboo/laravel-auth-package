@@ -36,7 +36,7 @@ class CurrentUserService
 
     public function projectId(): string
     {
-        return $this->claim('project_id');
+        return $this->claim('aud');
     }
 
     public function role(): string

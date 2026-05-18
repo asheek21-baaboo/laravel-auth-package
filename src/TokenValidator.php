@@ -19,10 +19,10 @@ class TokenValidator
     private const CACHE_KEY = 'baaboo_auth_jwks_public_key';
 
     public function __construct(
-        private readonly string $idpUrl,
-        private readonly int $cacheTtl,
         private readonly CacheRepository $cache,
-        private readonly string $jwksPath = '/.well-known/jwks.json',
+        private readonly string $idpUrl = CompanyAuth::IDP_URL,
+        private readonly int $cacheTtl = CompanyAuth::JWKS_CACHE_TTL,
+        private readonly string $jwksPath = CompanyAuth::JWKS_PATH,
         private readonly ?Client $httpClient = null,
     ) {}
 

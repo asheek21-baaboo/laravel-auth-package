@@ -6,6 +6,8 @@ namespace Baaboo\InternalToolComposerAuthPackage\Tests;
 
 use Baaboo\InternalToolComposerAuthPackage\AuthServiceProvider;
 use Baaboo\InternalToolComposerAuthPackage\Facades\CurrentUser;
+use Baaboo\InternalToolComposerAuthPackage\Http\Controllers\MeController;
+use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
 use Baaboo\InternalToolComposerAuthPackage\TokenValidator;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
@@ -31,16 +33,27 @@ abstract class TestCase extends OrchestraTestCase
         $client = new Client(['handler' => $handler]);
 
         $validator = new TokenValidator(
+            cache: new Repository(new ArrayStore),
             idpUrl: 'https://auth.test',
             cacheTtl: $cacheTtl,
-            cache: new Repository(new ArrayStore),
-            jwksPath: '/.well-known/jwks.json',
             httpClient: $client,
         );
 
         $this->app->instance(TokenValidator::class, $validator);
 
         return $validator;
+    }
+
+    protected function swapIdpTokenExchanger(MockHandler $mock): IdpTokenExchanger
+    {
+        $handler = HandlerStack::create($mock);
+        $exchanger = new IdpTokenExchanger(
+            httpClient: new Client(['handler' => $handler]),
+        );
+
+        $this->app->instance(IdpTokenExchanger::class, $exchanger);
+
+        return $exchanger;
     }
 
     protected function getPackageProviders($app): array
@@ -59,15 +72,20 @@ abstract class TestCase extends OrchestraTestCase
 
     protected function defineEnvironment($app): void
     {
+        $app['env'] = 'local';
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
+        $app['config']->set('app.url', 'https://hr.test');
         $app['config']->set('company-auth.idp_url', 'https://auth.test');
-        $app['config']->set('company-auth.cache_ttl', 3600);
+        $app['config']->set('company-auth.project_id', 'hr-portal');
+        $app['config']->set('company-auth.client_secret', 'test-client-secret');
+        $app['config']->set('company-auth.redirect_after_login', '/');
     }
 
     protected function defineRoutes($router): void
     {
-        $router->middleware('company.auth')
-            ->get('/__auth_probe', fn () => response()->json([
-                'ok' => true,
-            ]));
+        $router->middleware(['web', 'company.auth'])->group(function () use ($router): void {
+            $router->get('/__auth_probe', fn () => response()->json(['ok' => true]));
+            $router->get('/me', MeController::class)->name('company-auth.me');
+        });
     }
 }

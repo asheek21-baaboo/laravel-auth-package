@@ -20,7 +20,7 @@ final class TestJwt
             'sub' => 'test-user-id',
             'email' => 'jane@company.test',
             'global_role' => 'staff',
-            'project_id' => 'hr-portal',
+            'aud' => 'hr-portal',
             'project_role' => 'manager',
             'iat' => $iat,
             'exp' => $iat + 900,

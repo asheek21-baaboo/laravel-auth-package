@@ -8,6 +8,8 @@ use RuntimeException;
 
 class InvalidTokenException extends RuntimeException
 {
+    public const MESSAGE_EXPIRED = 'Token has expired.';
+
     public static function missingToken(): self
     {
         return new self('No token found in request.');
@@ -15,7 +17,12 @@ class InvalidTokenException extends RuntimeException
 
     public static function expired(): self
     {
-        return new self('Token has expired.');
+        return new self(self::MESSAGE_EXPIRED);
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->getMessage() === self::MESSAGE_EXPIRED;
     }
 
     public static function invalidSignature(): self

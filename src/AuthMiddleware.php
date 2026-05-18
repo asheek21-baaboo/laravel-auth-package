@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Baaboo\InternalToolComposerAuthPackage;
 
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidTokenException;
+use Baaboo\InternalToolComposerAuthPackage\Support\TokenCookie;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,6 +28,12 @@ class AuthMiddleware
         try {
             $claims = $this->validator->validate($token);
         } catch (InvalidTokenException $e) {
+            if ($e->isExpired() && ! $request->expectsJson()) {
+                return redirect()
+                    ->route('company-auth.token-expired')
+                    ->withCookie(TokenCookie::forget());
+            }
+
             return response()->json(['message' => $e->getMessage()], 401);
         }
 

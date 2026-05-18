@@ -22,10 +22,9 @@ function makeValidator(MockHandler $mock, int $cacheTtl = 3600): TokenValidator
     $handler = HandlerStack::create($mock);
 
     return new TokenValidator(
+        cache: new Repository(new ArrayStore),
         idpUrl: 'https://auth.test',
         cacheTtl: $cacheTtl,
-        cache: new Repository(new ArrayStore),
-        jwksPath: '/.well-known/jwks.json',
         httpClient: new Client(['handler' => $handler]),
     );
 }

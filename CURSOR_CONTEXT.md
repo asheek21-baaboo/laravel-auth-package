@@ -25,7 +25,7 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 │  - Hosts the App Portal (launchpad after login)         │
 │  - Laravel Passport for OAuth2 / token management       │
 └────────────────────┬────────────────────────────────────┘
-                     │  JWT (RS256, 15-min expiry)
+                     │  JWT (RS256, 10-hour expiry)
          ┌───────────▼───────────┐
          │   THIS PACKAGE        │  ← you are here
          │ baaboo/internal-tool- │
@@ -50,8 +50,11 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | Fetch & cache IdP public key (JWKS) | `TokenValidator` |
 | Verify JWT signature + expiry | `TokenValidator` |
 | Protect routes, return 401/403 | `AuthMiddleware` (alias: `company.auth`) |
+| Accept IdP revoke calls (`POST /auth/revoke`, service JWT, per-app `aud`) | **Planned** — see `docs/SECURE_DEFAULTS.md` §8 |
+| Enforce `sub` / `jti` revocation blacklist on user requests | **Planned** — `AuthMiddleware` after JWT verify |
 | Expose current user to controllers | `CurrentUser` facade |
-| Auto-register `GET /me` route | `AuthServiceProvider` |
+| `GET /auth/token-expired` | `TokenExpiredController` — HTML page with IdP link (`CompanyAuth::idpUrl()`) |
+| `GET /me` controller (`MeController`) | Consuming app registers on `web` + `company.auth` |
 | Bootstrap everything via auto-discovery | `AuthServiceProvider` (Laravel package auto-discovery) |
 
 ---
@@ -68,7 +71,8 @@ Tokens are RS256-signed JWTs issued by the IdP. The package validates these toke
     'global_role'  => 'staff',               // platform-level role: super_admin | staff
     'project_id'   => 'hr-portal',           // slug of the project this token is scoped to
     'project_role' => 'manager',             // role within this project: admin | manager | editor | viewer
-    'exp'          => 1234567890,            // 15-minute expiry timestamp
+    'exp'          => 1234567890,            // 10-hour expiry timestamp (iat + 36000)
+    'jti'          => 'unique-token-id',     // required — single-token revoke (see docs/SECURE_DEFAULTS.md §8)
 ]
 ```
 
@@ -80,7 +84,7 @@ Tokens are RS256-signed JWTs issued by the IdP. The package validates these toke
 
 ## The `/me` Response Contract
 
-The package auto-registers `GET /me` and returns JSON with **identity and coarse `project_role` from the JWT**. Keys and types are stable:
+Register `GET /me` on the consuming app’s **web** routes (see integration below). `MeController` returns JSON with **identity and coarse `project_role` from the JWT**. Keys and types are stable:
 
 ```json
 {
@@ -106,6 +110,7 @@ sso-composer-auth-package/
 ├── phpstan.neon
 ├── src/
 │   ├── AuthServiceProvider.php        # Registers everything via Laravel auto-discovery
+│   ├── CompanyAuth.php                # Fixed IdP URL, JWKS path, cache TTL (platform constants)
 │   ├── TokenValidator.php             # JWKS fetch + cache + JWT verify
 │   ├── AuthMiddleware.php             # Registered as 'company.auth'
 │   ├── CurrentUserService.php         # Backed by resolved JWT claims
@@ -113,7 +118,11 @@ sso-composer-auth-package/
 │   │   └── CurrentUser.php            # Facade over CurrentUserService
 │   └── Http/
 │       └── Controllers/
-│           └── MeController.php       # Auto-registered GET /me
+│           ├── AuthCallbackController.php
+│           ├── TokenExpiredController.php
+│           └── MeController.php       # Wire GET /me on web routes in the consuming app
+├── routes/
+│   └── company-auth.php               # GET /auth/callback, GET /auth/token-expired (auto-loaded)
 ├── tests/
 │   ├── TestCase.php                   # Base test case extending Orchestra\Testbench
 │   ├── Unit/
@@ -121,8 +130,11 @@ sso-composer-auth-package/
 │   └── Feature/
 │       ├── AuthMiddlewareTest.php
 │       └── MeEndpointTest.php
-└── config/
-    └── company-auth.php               # Publishable config (IDP_URL, cache TTL, etc.)
+├── config/
+│   └── company-auth.php               # `idp_url`, callback secrets, post-login redirect
+├── resources/
+│   └── views/
+│       └── token-expired.blade.php   # Shown when JWT is expired (browser) or direct GET
 ```
 
 ---
@@ -201,15 +213,19 @@ When adding or renaming providers or facades, update `extra.laravel` in `compose
 composer require baaboo/internal-tool-composer-auth-package
 ```
 
-`.env`:
+`.env` (each tool):
 ```
-IDP_URL=https://auth.company.com
+APP_PROJECT_ID=hr-portal
+COMPANY_AUTH_CLIENT_SECRET=...   # from SSO app registry
+COMPANY_AUTH_REDIRECT=/dashboard # optional, default /
 ```
 
-Routes:
+`GET /auth/callback` is registered by the package. Wire protected routes on `web` + `company.auth`:
 ```php
-// Wrap protected routes with the middleware
-Route::middleware('company.auth')->group(function () {
+use Baaboo\InternalToolComposerAuthPackage\Http\Controllers\MeController;
+
+Route::middleware(['web', 'company.auth'])->group(function () {
+    Route::get('/me', MeController::class);
     Route::get('/dashboard', DashboardController::class);
 });
 ```
@@ -239,7 +255,7 @@ That is all. No token parsing, no signature verification, no `/me` controller to
 |---|---|---|
 | JWT algorithm | RS256 (asymmetric) | Consuming tools only need public key, never the signing secret |
 | Token storage | `httpOnly` cookies | Prevents XSS — tokens never accessible to JavaScript |
-| Token lifetime | 15 minutes + refresh token | Revocation possible immediately via refresh token blacklist |
+| Token lifetime | 10 hours, no refresh token | Re-login via IdP after expiry; immediate lockout via `POST /auth/revoke` + blacklist (§8 in SECURE_DEFAULTS) |
 | Public key caching | Laravel cache store | Avoid hitting IdP JWKS endpoint on every request |
 | IdP technology | Laravel Passport | Native Laravel DX, no external dependency (no Keycloak/Auth0) |
 | Framework coupling | `illuminate/*` components only, not `laravel/framework` | Supports Laravel 10–13 without pinning the full framework |
@@ -250,11 +266,15 @@ That is all. No token parsing, no signature verification, no `/me` controller to
 
 ## Security Rules (Non-Negotiable)
 
+See **[docs/SECURE_DEFAULTS.md](docs/SECURE_DEFAULTS.md)** for cookie flags, CSRF, JWT claims, 10-hour token TTL, token-expired / SSO re-login, **revocation (service JWT per app)**, logout, and per-project integration checklists.
+
 - Tokens are **always** stored in `httpOnly` cookies — never in `localStorage` or accessible to JS
 - Consuming projects must enforce in-app authorization; the JWT only supplies coarse `project_role` from the IdP
 - HTTPS is enforced across all services; HSTS headers must be set
 - Every token event must be logged with actor, IP, user agent, and timestamp
 - JWT signing keys are rotatable without downtime via the JWKS endpoint
+- Offboarding: IdP deactivates user, then `POST /auth/revoke` to each child app with a short-lived service JWT (`aud` = that app’s `project_id`); see `docs/SECURE_DEFAULTS.md` §8
+- User access JWTs must include `jti`; revocation blacklist TTL ≥ 10 hours
 - PKCE is required for all Authorization Code flows
 - The `exp` claim must always be validated — never skip expiry checks
 
@@ -275,9 +295,9 @@ That is all. No token parsing, no signature verification, no `/me` controller to
 
 | Phase | Status | Scope |
 |---|---|---|
-| Phase 1 — Foundation | **In progress** | IdP + portal + this Composer package v1 (TokenValidator, AuthMiddleware, CurrentUser, `/me`) |
+| Phase 1 — Foundation | **In progress** | IdP + portal + this package v1 (TokenValidator, AuthMiddleware, CurrentUser, `/me`); revoke route + blacklist **planned** (§8 SECURE_DEFAULTS) |
 | Phase 2 — Dynamic Roles & Frontend | Planned | Per-project role management UI, npm package (`@company/auth`) for React/Vue |
-| Phase 3 — Hardening | Planned | Google Workspace OAuth, MFA, refresh token rotation, audit log UI |
+| Phase 3 — Hardening | Planned | Google Workspace OAuth, MFA, audit log UI, optional package token-expired route |
 
 ---
 
@@ -290,16 +310,28 @@ That is all. No token parsing, no signature verification, no `/me` controller to
 - **Tests** live in `tests/` under `Baaboo\InternalToolComposerAuthPackage\Tests\` namespace, using Pest
 - **Formatting** via `composer format` (Pint) before every commit
 - **Static analysis** via `composer analyse` must pass at level 5 minimum before merging
-- Config values are read from environment via `config('company-auth.*')` — never `env()` directly inside package classes
+- IdP URL: `CompanyAuth::idpUrl()` (production constant; local override via `IDP_URL` in `.env`). JWKS path and cache TTL are fixed on `CompanyAuth`
 
 ---
 
-## Environment Variables
+## Platform constants (`CompanyAuth`)
+
+| Symbol | Value / behaviour | Purpose |
+|---|---|---|
+| `CompanyAuth::idpUrl()` | `https://auth.company.com` in non-local; `config('company-auth.idp_url')` when `APP_ENV=local` | JWKS fetch + issuer checks — use this in app code |
+| `CompanyAuth::IDP_URL` | `https://auth.company.com` | Production IdP base URL (constant) |
+| `CompanyAuth::JWKS_PATH` | `/.well-known/jwks.json` | OIDC JWKS discovery path (fixed) |
+| `CompanyAuth::JWKS_CACHE_TTL` | `3600` | Seconds to cache JWKS keys in the app cache store |
+
+### Environment variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `IDP_URL` | Yes | Base URL of the Laravel IdP, e.g. `https://auth.company.com` |
-| `COMPANY_AUTH_CACHE_TTL` | No | Seconds to cache the JWKS public key (default: 3600) |
+| `IDP_URL` | Local only | Override IdP base URL when `APP_ENV=local` (e.g. `http://sso.test`) |
+| `APP_PROJECT_ID` | Yes | Tool slug — must match JWT `aud` and `project_id` |
+| `COMPANY_AUTH_CLIENT_SECRET` | Yes | Server-side code exchange secret from SSO registry |
+| `COMPANY_AUTH_CLIENT_ID` | No | Defaults to `APP_PROJECT_ID` |
+| `COMPANY_AUTH_REDIRECT` | No | Path after successful callback (default `/`) |
 
 ---
 

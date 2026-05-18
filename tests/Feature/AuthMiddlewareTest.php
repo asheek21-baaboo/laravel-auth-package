@@ -18,7 +18,7 @@ test('returns 401 when no token is present (no cookie, no header)', function () 
         ->assertJson(['message' => 'Unauthenticated.']);
 });
 
-test('returns 401 with message when token is expired', function () {
+test('returns 401 with message when token is expired (JSON request)', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
     $token = TestJwt::encode(['iat' => 1_999_999_000, 'exp' => 1_999_999_100]);
@@ -27,6 +27,18 @@ test('returns 401 with message when token is expired', function () {
         ->getJson('/__auth_probe')
         ->assertStatus(401)
         ->assertJsonFragment(['message' => 'Token has expired.']);
+});
+
+test('redirects to token-expired page when token is expired (browser request)', function () {
+    JWT::$timestamp = 2_000_000_000;
+    $this->swapTokenValidatorWithJwks(TestJwt::jwks());
+    $token = TestJwt::encode(['iat' => 1_999_999_000, 'exp' => 1_999_999_100]);
+
+    $this->withHeaders(['Accept' => 'text/html'])
+        ->withCookie('token', $token)
+        ->withCredentials()
+        ->get('/__auth_probe')
+        ->assertRedirect(route('company-auth.token-expired'));
 });
 
 test('returns 401 with message when token signature is invalid', function () {
@@ -67,7 +79,7 @@ test('extracts token from cookie named token', function () {
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
     $token = TestJwt::encode(['iat' => 2_000_000_000, 'exp' => 2_000_000_900]);
 
-    $this->withUnencryptedCookie('token', $token)
+    $this->withCookie('token', $token)
         ->withCredentials()
         ->getJson('/__auth_probe')
         ->assertOk();
@@ -80,7 +92,7 @@ test('populates CurrentUserService with claims after valid token', function () {
         'sub' => 'probe-subject',
         'email' => 'probe@company.test',
         'global_role' => 'staff',
-        'project_id' => 'tool-x',
+        'aud' => 'tool-x',
         'project_role' => 'editor',
         'iat' => 2_000_000_000,
         'exp' => 2_000_000_900,

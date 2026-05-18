@@ -5,6 +5,6 @@ alwaysApply: true
 
 # Internal SSO Composer package
 
-For this repository, **read and follow** the root file `CURSOR_CONTEXT.md` before implementing or changing package behaviour. It defines the JWT contract, `/me` response shape, middleware alias (`company.auth`), PSR-4 namespace (`Baaboo\InternalToolComposerAuthPackage`), Composer package name, security rules, and integration examples.
+For this repository, **read and follow** the root file `CURSOR_CONTEXT.md` before implementing or changing package behaviour. It defines the JWT contract, `/me` response shape, middleware alias (`company.auth`), PSR-4 namespace (`Baaboo\InternalToolComposerAuthPackage`), Composer package name, security rules, and integration examples. For cookie/JWT/CSRF/refresh secure defaults, see `docs/SECURE_DEFAULTS.md`.
 
 If `CURSOR_CONTEXT.md` and code disagree, update the doc **or** the code in the same change so they stay aligned.

@@ -25,12 +25,12 @@ function validCallbackJwt(array $overrides = []): string
     ], $overrides));
 }
 
-test('GET /auth/callback returns 400 when code is missing', function () {
-    $this->get('/auth/callback')
+test('GET /oauth/callback returns 400 when code is missing', function () {
+    $this->get('/oauth/callback')
         ->assertStatus(400);
 });
 
-test('GET /auth/callback exchanges code, sets token cookie, and redirects', function () {
+test('GET /oauth/callback exchanges code, sets token cookie, and redirects', function () {
     $jwt = validCallbackJwt();
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
     $this->swapIdpTokenExchanger(new MockHandler([
@@ -41,13 +41,13 @@ test('GET /auth/callback exchanges code, sets token cookie, and redirects', func
         ])),
     ]));
 
-    $response = $this->get('/auth/callback?code=one-time-code');
+    $response = $this->get('/oauth/callback?code=one-time-code');
 
     $response->assertRedirect('/');
     $response->assertCookie(CompanyAuth::TOKEN_COOKIE_NAME);
 });
 
-test('GET /auth/callback returns 403 when token aud does not match project', function () {
+test('GET /oauth/callback returns 403 when token aud does not match project', function () {
     $jwt = validCallbackJwt(['aud' => 'other-portal']);
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
     $this->swapIdpTokenExchanger(new MockHandler([
@@ -58,16 +58,16 @@ test('GET /auth/callback returns 403 when token aud does not match project', fun
         ])),
     ]));
 
-    $this->get('/auth/callback?code=bad-aud')
+    $this->get('/oauth/callback?code=bad-aud')
         ->assertStatus(403);
 });
 
-test('GET /auth/callback returns 403 when IdP rejects the code', function () {
+test('GET /oauth/callback returns 403 when IdP rejects the code', function () {
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
     $this->swapIdpTokenExchanger(new MockHandler([
         new Response(400, [], json_encode(['error' => 'invalid_grant'])),
     ]));
 
-    $this->get('/auth/callback?code=expired-code')
+    $this->get('/oauth/callback?code=expired-code')
         ->assertStatus(403);
 });

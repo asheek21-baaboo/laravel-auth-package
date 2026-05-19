@@ -7,6 +7,7 @@ namespace Baaboo\InternalToolComposerAuthPackage\Tests;
 use Baaboo\InternalToolComposerAuthPackage\AuthServiceProvider;
 use Baaboo\InternalToolComposerAuthPackage\Facades\CurrentUser;
 use Baaboo\InternalToolComposerAuthPackage\Http\Controllers\MeController;
+use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
 use Baaboo\InternalToolComposerAuthPackage\TokenValidator;
 use GuzzleHttp\Client;
@@ -15,10 +16,13 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
 
 abstract class TestCase extends OrchestraTestCase
 {
+    use RefreshDatabase;
+
     /**
      * @param  array<int, Response>  $extraResponses
      */
@@ -56,6 +60,18 @@ abstract class TestCase extends OrchestraTestCase
         return $exchanger;
     }
 
+    protected function seedSsoUser(
+        string $id = 'test-user-id',
+        string $email = 'jane@company.test',
+        ?string $name = 'Jane Doe',
+    ): SsoUser {
+        return SsoUser::query()->create([
+            'id' => $id,
+            'email' => $email,
+            'name' => $name,
+        ]);
+    }
+
     protected function getPackageProviders($app): array
     {
         return [
@@ -79,6 +95,13 @@ abstract class TestCase extends OrchestraTestCase
         $app['config']->set('company-auth.project_id', 'hr-portal');
         $app['config']->set('company-auth.client_secret', 'test-client-secret');
         $app['config']->set('company-auth.redirect_after_login', '/');
+
+        $app['config']->set('database.default', 'testing');
+        $app['config']->set('database.connections.testing', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+        ]);
     }
 
     protected function defineRoutes($router): void

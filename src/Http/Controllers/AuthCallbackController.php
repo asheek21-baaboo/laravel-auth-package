@@ -9,6 +9,7 @@ use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidCallbackTokenExcept
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidTokenException;
 use Baaboo\InternalToolComposerAuthPackage\Services\CallbackJwtValidator;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
+use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
 use Baaboo\InternalToolComposerAuthPackage\Support\TokenCookie;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ final class AuthCallbackController extends Controller
     public function __construct(
         private readonly IdpTokenExchanger $tokenExchanger,
         private readonly CallbackJwtValidator $callbackJwtValidator,
+        private readonly SsoUserSynchronizer $ssoUserSynchronizer,
     ) {}
 
     public function __invoke(Request $request): RedirectResponse
@@ -37,10 +39,12 @@ final class AuthCallbackController extends Controller
 
         try {
             $jwt = $this->tokenExchanger->exchange($code, $redirectUri);
-            $this->callbackJwtValidator->validate($jwt);
+            $claims = $this->callbackJwtValidator->validate($jwt);
         } catch (CodeExchangeException|InvalidCallbackTokenException|InvalidTokenException $e) {
             abort(403, $e->getMessage());
         }
+
+        $this->ssoUserSynchronizer->syncFromClaims($claims);
 
         $destination = config('company-auth.redirect_after_login', '/');
         if (! is_string($destination) || $destination === '') {

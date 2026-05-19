@@ -56,6 +56,7 @@ test('returns 401 with message when token signature is invalid', function () {
 test('proceeds to next middleware when token is valid', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
+    $this->seedSsoUser();
     $token = TestJwt::encode(['iat' => 2_000_000_000, 'exp' => 2_000_000_900]);
 
     $this->withToken($token)
@@ -67,6 +68,7 @@ test('proceeds to next middleware when token is valid', function () {
 test('extracts token from Authorization: Bearer header', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
+    $this->seedSsoUser();
     $token = TestJwt::encode(['iat' => 2_000_000_000, 'exp' => 2_000_000_900]);
 
     $this->withHeaders(['Authorization' => 'Bearer '.$token])
@@ -77,6 +79,7 @@ test('extracts token from Authorization: Bearer header', function () {
 test('extracts token from cookie named token', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
+    $this->seedSsoUser();
     $token = TestJwt::encode(['iat' => 2_000_000_000, 'exp' => 2_000_000_900]);
 
     $this->withCookie('token', $token)
@@ -88,6 +91,11 @@ test('extracts token from cookie named token', function () {
 test('populates CurrentUserService with claims after valid token', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
+    $this->seedSsoUser(
+        id: 'probe-subject',
+        email: 'probe@company.test',
+        name: 'Probe',
+    );
     $token = TestJwt::encode([
         'sub' => 'probe-subject',
         'email' => 'probe@company.test',

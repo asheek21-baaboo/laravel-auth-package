@@ -24,6 +24,12 @@ final class CompanyAuth
 
     public const ACCESS_TOKEN_TTL_SECONDS = 36_000;
 
+    /** Laravel guard for {@see \Baaboo\InternalToolComposerAuthPackage\Models\SsoUser} (not configurable). */
+    public const SSO_GUARD = 'sso';
+
+    /** Auth provider key paired with {@see SSO_GUARD} (not configurable). */
+    public const SSO_USER_PROVIDER = 'sso_users';
+
     /**
      * IdP base URL for JWKS fetch and issuer checks.
      * Non-local environments always use {@see IDP_URL}.

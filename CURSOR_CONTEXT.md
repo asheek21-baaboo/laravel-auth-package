@@ -52,7 +52,9 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | Protect routes, return 401/403 | `AuthMiddleware` (alias: `company.auth`) |
 | Accept IdP revoke calls (`POST /auth/revoke`, service JWT, per-app `aud`) | **Planned** — see `docs/SECURE_DEFAULTS.md` §8 |
 | Enforce `sub` / `jti` revocation blacklist on user requests | **Planned** — `AuthMiddleware` after JWT verify |
-| Expose current user to controllers | `CurrentUser` facade |
+| Expose current user to controllers | `CurrentUser` facade + `Auth::guard('sso')->user()` (`SsoUser`) |
+| Sync local user profile on login | `SsoUserSynchronizer` on `GET /oauth/callback` |
+| `sso_users` migration (publishable) | `database/migrations/*_create_sso_users_table.php` |
 | `GET /auth/token-expired` | `TokenExpiredController` — HTML page with IdP link (`CompanyAuth::idpUrl()`) |
 | `GET /me` controller (`MeController`) | Consuming app registers on `web` + `company.auth` |
 | Bootstrap everything via auto-discovery | `AuthServiceProvider` (Laravel package auto-discovery) |
@@ -114,6 +116,12 @@ sso-composer-auth-package/
 │   ├── TokenValidator.php             # JWKS fetch + cache + JWT verify
 │   ├── AuthMiddleware.php             # Registered as 'company.auth'
 │   ├── CurrentUserService.php         # Backed by resolved JWT claims
+│   ├── Models/
+│   │   └── SsoUser.php                # Eloquent Authenticatable (id = JWT sub)
+│   ├── Auth/
+│   │   └── SsoJwtGuard.php            # Guard driver `sso-jwt`
+│   ├── Services/
+│   │   └── SsoUserSynchronizer.php    # Upsert SsoUser on callback only
 │   ├── Facades/
 │   │   └── CurrentUser.php            # Facade over CurrentUserService
 │   └── Http/
@@ -208,6 +216,8 @@ When adding or renaming providers or facades, update `extra.laravel` in `compose
 ---
 
 ## How a Developer Integrates a New Laravel Tool
+
+**Full step-by-step install:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
 
 ```bash
 composer require baaboo/internal-tool-composer-auth-package

@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Baaboo\InternalToolComposerAuthPackage;
 
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidTokenException;
+use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Support\TokenCookie;
+use Baaboo\InternalToolComposerAuthPackage\Support\TokenExtractor;
 use Closure;
+use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -15,11 +18,13 @@ class AuthMiddleware
     public function __construct(
         private readonly TokenValidator $validator,
         private readonly CurrentUserService $currentUser,
+        private readonly TokenExtractor $tokenExtractor,
+        private readonly AuthFactory $auth,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
-        $token = $this->extractToken($request);
+        $token = $this->tokenExtractor->fromRequest($request);
 
         if ($token === null) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
@@ -37,28 +42,24 @@ class AuthMiddleware
             return response()->json(['message' => $e->getMessage()], 401);
         }
 
-        // Hydrate the CurrentUserService with the validated claims
-        // so controllers can call CurrentUser::id(), CurrentUser::email(), etc.
+        $sub = $claims->sub ?? null;
+        if (! is_string($sub) || $sub === '') {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $provider = $this->auth->createUserProvider(CompanyAuth::SSO_USER_PROVIDER);
+
+        $ssoUser = $provider->retrieveById($sub);
+
+        if (! $ssoUser instanceof SsoUser) {
+            return response()->json([
+                'message' => 'User profile not found. Please sign in again via SSO.',
+            ], 401);
+        }
+
+        $this->auth->guard(CompanyAuth::SSO_GUARD)->setUser($ssoUser);
         $this->currentUser->setFromClaims($claims);
 
         return $next($request);
-    }
-
-    /**
-     * Extract the JWT from the request.
-     *
-     * Priority:
-     * 1. Bearer token in Authorization header  (for API clients / testing)
-     * 2. 'token' httpOnly cookie               (standard browser flow)
-     */
-    private function extractToken(Request $request): ?string
-    {
-        $bearer = $request->bearerToken();
-
-        if ($bearer !== null) {
-            return $bearer;
-        }
-
-        return $request->cookie('token') ?: null;
     }
 }

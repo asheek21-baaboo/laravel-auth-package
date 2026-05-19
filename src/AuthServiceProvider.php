@@ -8,6 +8,8 @@ use Baaboo\InternalToolComposerAuthPackage\Auth\SsoJwtGuard;
 use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Services\CallbackJwtValidator;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
+use Baaboo\InternalToolComposerAuthPackage\Services\SsoAuthorizationUrlBuilder;
+use Baaboo\InternalToolComposerAuthPackage\Services\SsoRequestAuthenticator;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
 use Baaboo\InternalToolComposerAuthPackage\Support\TokenExtractor;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
@@ -31,6 +33,8 @@ final class AuthServiceProvider extends ServiceProvider
         $this->app->singleton(IdpTokenExchanger::class);
         $this->app->singleton(CallbackJwtValidator::class);
         $this->app->singleton(SsoUserSynchronizer::class);
+        $this->app->singleton(SsoRequestAuthenticator::class);
+        $this->app->singleton(SsoAuthorizationUrlBuilder::class);
         $this->app->singleton(TokenExtractor::class);
 
         $this->registerSsoAuthGuard();
@@ -52,6 +56,7 @@ final class AuthServiceProvider extends ServiceProvider
         /** @var Router $router */
         $router = $this->app->make(Router::class);
         $router->aliasMiddleware('company.auth', AuthMiddleware::class);
+        $router->aliasMiddleware('company.guest', GuestMiddleware::class);
 
         $this->loadRoutesFrom(__DIR__.'/../routes/company-auth.php');
     }

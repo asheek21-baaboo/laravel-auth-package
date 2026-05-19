@@ -31,9 +31,8 @@ When the 10-hour JWT expires, browser users need a clear path back to SSO (no re
 ### Still to do / align
 
 - [ ] **Route naming & paths** — package registers `GET /oauth/token-expired` (`company-auth.token-expired`); docs often say `/auth/token-expired`. Decide canonical path (`/auth/*` vs `/oauth/*`) and align routes, `CURSOR_CONTEXT.md`, and `SECURE_DEFAULTS.md`
-- [ ] **Re-login CTA on token-expired page** — today the link goes straight to `CompanyAuth::idpUrl()`. Per §7.2, consider a dedicated **“Log in via SSO”** flow:
-  - [ ] Optional package `GET /auth/login` (or `/oauth/login`) that redirects to IdP with `redirect_uri` + `project_id` / `client_id` (consuming app or package registers route)
-  - [ ] Update `token-expired.blade.php` to use that login route instead of raw IdP URL when configured
+- [x] **Login route** — `GET /login` + `GET /oauth/login` → IdP authorize (`company.guest`)
+- [x] **Token-expired CTA** — links to `route('company-auth.login')`
 - [ ] **Publish / override view** — allow consuming apps to publish `token-expired` blade or override controller for branding
 - [ ] **Direct visit to token-expired** — document behaviour when user opens the page without an expired cookie (informational only vs redirect home)
 - [ ] **Logging** — log token-expiry events (actor if known from stale cookie, IP, UA, timestamp) per §11.2
@@ -54,19 +53,12 @@ Expired JWT on protected page
 
 ## Logout
 
-Voluntary sign-out: clear local session cookie; optionally end IdP portal session. Does **not** replace IdP fan-out revoke on offboarding (§8). See **SECURE_DEFAULTS.md §9**.
+Implemented — see **SECURE_DEFAULTS.md §9** and **INSTALLATION.md**.
 
-- [ ] **`AuthLogoutController`** — `POST` (preferred, CSRF + `web`) or `GET` logout route in package routes
-- [ ] **Clear `token` cookie** — use `TokenCookie::forget()` (same `Path` / `Domain` / `Secure` / `SameSite` as when set)
-- [ ] **Clear Laravel auth state** — when guard exists: `Auth::guard('company')->logout()` / forget user on request
-- [ ] **Optional IdP logout redirect** — config e.g. `company-auth.idp_logout_url` or `{idpUrl}/logout`; redirect after cookie cleared
-- [ ] **Post-logout landing** — config `company-auth.logout_redirect` (default `/` or login page)
-- [ ] **Do not blacklist on voluntary logout** — document that only §8 revoke offboards; logout ≠ deactivate user
-- [ ] **Blade or simple response** — optional “You have been logged out” page before IdP redirect
-- [ ] **Register route** — e.g. `POST /oauth/logout` or `POST /auth/logout` with `web` + throttle; name route `company-auth.logout`
-- [ ] **Tests** — assert cookie expired, no `company.auth` access after logout, optional mock IdP redirect URL
-- [ ] **Docs** — `CURSOR_CONTEXT.md`, `SECURE_DEFAULTS.md` §9, consuming-app checklist (link logout button in app layout)
-- [ ] **Frontend note** — document that SPA/tools should `POST` logout with CSRF token, not only clear client state
+- [x] `AuthLogoutController` — `POST /logout` + `POST /oauth/logout` (`logout`, `company-auth.logout`)
+- [x] Clear `token` cookie + `SsoJwtGuard::logout()`
+- [x] Optional IdP logout (`SSO_REDIRECT_TO_IDP_LOGOUT`, default `true`)
+- [x] `SSO_REDIRECT_AFTER_LOGOUT` when IdP logout disabled
 
 ---
 

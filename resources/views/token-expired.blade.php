@@ -12,6 +12,6 @@
 <body>
     <h1>Session expired</h1>
     <p>Token expired, please log in via SSO.</p>
-    <p><a href="{{ $idpUrl }}" rel="noopener noreferrer">Go to SSO (IdP)</a></p>
+    <p><a href="{{ $loginUrl }}" rel="noopener noreferrer">Log in via SSO</a></p>
 </body>
 </html>

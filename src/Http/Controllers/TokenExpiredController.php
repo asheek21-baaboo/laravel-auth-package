@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Baaboo\InternalToolComposerAuthPackage\Http\Controllers;
 
-use Baaboo\InternalToolComposerAuthPackage\CompanyAuth;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 
@@ -16,7 +15,7 @@ final class TokenExpiredController extends Controller
 
         return response(
             view()->file($path, [
-                'idpUrl' => CompanyAuth::idpUrl(),
+                'loginUrl' => route('company-auth.login'),
             ])->render(),
         )->header('Content-Type', 'text/html; charset=UTF-8');
     }

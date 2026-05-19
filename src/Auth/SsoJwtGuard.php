@@ -58,6 +58,11 @@ final class SsoJwtGuard implements Guard
         return $this;
     }
 
+    public function logout(): void
+    {
+        $this->user = null;
+    }
+
     public function getProvider(): UserProvider
     {
         return $this->provider;

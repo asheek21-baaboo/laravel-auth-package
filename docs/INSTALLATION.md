@@ -140,7 +140,9 @@ Add these to the consuming app’s `.env`. Use the **`SSO_*`** names (they map t
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `SSO_CLIENT_ID` | Same as `SSO_PROJECT_ID` | OAuth `client_id` sent to IdP token endpoint |
-| `SSO_REDIRECT_AFTER_LOGIN` | `/` | Path (or URL path) to redirect after successful `/oauth/callback` |
+| `SSO_REDIRECT_AFTER_LOGIN` | `/` | Path after callback **and** when `company.guest` sees an existing session |
+| `SSO_REDIRECT_AFTER_LOGOUT` | `/login` | Path when `SSO_REDIRECT_TO_IDP_LOGOUT=false` |
+| `SSO_REDIRECT_TO_IDP_LOGOUT` | `true` | Redirect to IdP `/logout` to clear portal session |
 | `IDP_URL` | `http://baaboo-sso.test` in config | **Local only** — IdP base URL when `APP_ENV=local` |
 
 ### Example `.env` block
@@ -236,16 +238,36 @@ If someone has a valid cookie but never hit callback on this app, `company.auth`
 
 These are loaded from `routes/company-auth.php` (no manual import needed):
 
-| Method | Path | Route name | Middleware |
-|--------|------|------------|------------|
+| Method | Path | Route name(s) | Middleware |
+|--------|------|---------------|------------|
+| `GET` | `/login` | `login`, `company-auth.login` | `web`, `company.guest`, throttle |
+| `GET` | `/oauth/login` | `company-auth.login` (alias) | same as `/login` |
+| `POST` | `/logout` | `logout`, `company-auth.logout` | `web`, throttle |
+| `POST` | `/oauth/logout` | `company-auth.logout` (alias) | `web`, throttle |
 | `GET` | `/oauth/callback` | `company-auth.callback` | `web`, throttle |
 | `GET` | `/oauth/token-expired` | `company-auth.token-expired` | `web`, throttle |
+
+**Do not register your own `/login`** — the package redirects to the IdP OAuth authorize URL. Use Laravel’s `route('login')` in `redirectGuestsTo()` etc.
+
+**Logout in Blade** (CSRF required):
+
+```blade
+<form method="POST" action="{{ route('logout') }}">
+    @csrf
+    <button type="submit">Log out</button>
+</form>
+```
 
 **Not registered by the package** (you add in the app):
 
 - `GET /me` — see [§11](#11-optional-me-endpoint)
-- `POST /auth/logout` — planned; see [TODO.md](./TODO.md)
-- Login redirect to IdP — optional in your app or portal
+
+### Middleware aliases
+
+| Alias | Purpose |
+|-------|---------|
+| `company.auth` | Protected routes — validate JWT, load `SsoUser`, set `Auth::guard('sso')` |
+| `company.guest` | Login routes — if valid JWT + `sso_users` row exists, redirect to `SSO_REDIRECT_AFTER_LOGIN` (replaces Laravel `guest` for JWT) |
 
 ---
 
@@ -270,7 +292,9 @@ Route::middleware(['web', 'company.auth'])->group(function () {
 
 - Landing/marketing pages
 - Health checks
-- Package callback and token-expired routes (already public)
+- Package login, logout, callback, and token-expired routes (already registered)
+
+**Do not use Laravel’s `guest` middleware** on `/login` — it checks the `web` guard, not JWT. The package route already uses `company.guest`.
 
 **API / JSON clients** can send `Authorization: Bearer <jwt>` instead of the cookie; the same middleware applies.
 

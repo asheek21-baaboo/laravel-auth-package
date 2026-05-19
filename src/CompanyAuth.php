@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Baaboo\InternalToolComposerAuthPackage;
 
+use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
+
 /**
  * Fixed platform endpoints for the internal SSO IdP.
  */
@@ -15,6 +17,10 @@ final class CompanyAuth
 
     public const TOKEN_EXCHANGE_PATH = '/oauth/token';
 
+    public const OAUTH_AUTHORIZE_PATH = '/oauth/authorize';
+
+    public const IDP_LOGOUT_PATH = '/logout';
+
     public const JWKS_CACHE_TTL = 3600;
 
     public const TOKEN_COOKIE_NAME = 'token';
@@ -24,7 +30,7 @@ final class CompanyAuth
 
     public const ACCESS_TOKEN_TTL_SECONDS = 36_000;
 
-    /** Laravel guard for {@see \Baaboo\InternalToolComposerAuthPackage\Models\SsoUser} (not configurable). */
+    /** Laravel guard for {@see SsoUser} (not configurable). */
     public const SSO_GUARD = 'sso';
 
     /** Auth provider key paired with {@see SSO_GUARD} (not configurable). */

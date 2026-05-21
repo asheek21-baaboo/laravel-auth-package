@@ -10,7 +10,7 @@
 
 Bridge JWT SSO to `Auth::user()` so consuming apps do not maintain two parallel “who is logged in?” paths.
 
-- [x] **Implement auth guard (`sso`)** — `SsoUser`, `SsoJwtGuard`, sync on callback, middleware sets `Auth::guard('sso')` — see [SSO_USER.md](./SSO_USER.md)
+- [x] **Implement auth guard (`sso`)** — `users` table sync on callback, `SsoJwtGuard`, middleware sets `Auth::guard('sso')` — see [INSTALLATION.md](./INSTALLATION.md) §7–§10
 - [ ] **Remaining guard polish** — optional items in [AUTH_GUARD_TODO.md](./AUTH_GUARD_TODO.md) (`CurrentUser` delegates to guard, `auth:sso` alias docs)
 - [ ] **Document consuming-app setup** — `config/auth.php` `company` guard, optional Spatie resolver (`sub` → local `User`)
 - [ ] **Keep `CurrentUser` working** — delegate to guard user for backward compatibility

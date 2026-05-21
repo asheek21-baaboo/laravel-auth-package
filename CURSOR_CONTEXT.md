@@ -52,8 +52,8 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | Protect routes, return 401/403 | `AuthMiddleware` (alias: `company.auth`) |
 | Accept IdP revoke calls (`POST /auth/revoke`, service JWT, per-app `aud`) | **Planned** — see `docs/SECURE_DEFAULTS.md` §8 |
 | Enforce `sub` / `jti` revocation blacklist on user requests | **Planned** — `AuthMiddleware` after JWT verify |
-| Expose current user to controllers | `CurrentUser` facade + `Auth::guard('sso')->user()` (`SsoUser`) |
-| Sync local user profile on login | `SsoUserSynchronizer` on `GET /oauth/callback` |
+| Expose current user to controllers | `CurrentUser` facade + `Auth::guard('sso')->user()` (`users` table) |
+| Sync local user profile on login | Profile upsert on `GET /oauth/callback` (`users` table) |
 | `users` migration (non-destructive when table already exists) | `database/migrations/*_ensure_users_table_for_company_auth.php` |
 | `GET /login` | `AuthLoginController` — redirect to IdP OAuth authorize (`company.guest`) |
 | `POST /logout` | `AuthLogoutController` — clear cookie, optional IdP logout |
@@ -120,11 +120,11 @@ sso-composer-auth-package/
 │   ├── AuthMiddleware.php             # Registered as 'company.auth'
 │   ├── CurrentUserService.php         # Backed by resolved JWT claims
 │   ├── Models/
-│   │   └── SsoUser.php                # Eloquent Authenticatable (id = JWT sub)
+│   │   └── SsoUser.php                # Eloquent model — table `users`, id = JWT sub
 │   ├── Auth/
 │   │   └── SsoJwtGuard.php            # Guard driver `sso-jwt`
 │   ├── Services/
-│   │   └── SsoUserSynchronizer.php    # Upsert SsoUser on callback only
+│   │   └── SsoUserSynchronizer.php    # Upsert `users` row on callback only
 │   ├── Facades/
 │   │   └── CurrentUser.php            # Facade over CurrentUserService
 │   └── Http/

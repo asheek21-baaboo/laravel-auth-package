@@ -46,7 +46,7 @@ The PHP package stores a local profile in the app’s **`users`** table (not a s
 | **Each request** | JWT verified every time (JWKS public key cached 3600s — **not** the token); `users` row loaded by `sub` |
 | **Auth provider key** | Config key `sso_users` (historical name); model uses table `users` |
 
-See `docs/INSTALLATION.md` §7 and `docs/SSO_USER.md` for Laravel integration.
+See `docs/INSTALLATION.md` §7 and §10 for Laravel `users` table and `sso` guard integration.
 
 ---
 
@@ -737,4 +737,4 @@ Use a local RSA key pair + mock JWKS (mirror `tests/Support/TestJwt.php` in comp
 
 ---
 
-*Source of truth for PHP behaviour: repository `sso-composer-auth-package` — `src/`, `config/company-auth.php`, `routes/company-auth.php`, `docs/INSTALLATION.md`, `docs/SECURE_DEFAULTS.md`, `docs/SSO_USER.md` (Laravel `users` table + `sso` guard).*
+*Source of truth for PHP behaviour: repository `sso-composer-auth-package` — `src/`, `config/company-auth.php`, `routes/company-auth.php`, `docs/INSTALLATION.md`, `docs/SECURE_DEFAULTS.md`.*

@@ -3,7 +3,6 @@
 This document walks through installing and configuring the package in an **internal Laravel tool** (HR portal, CRM, ops dashboard, etc.) that authenticates users via the company SSO IdP.
 
 For security defaults (cookies, JWT, revocation, logout), see **[SECURE_DEFAULTS.md](./SECURE_DEFAULTS.md)**.  
-For `SsoUser` / `Auth::guard('sso')` / Spatie, see **[SSO_USER.md](./SSO_USER.md)**.  
 For package behaviour and JWT contract, see **[CURSOR_CONTEXT.md](../CURSOR_CONTEXT.md)**.
 
 ---
@@ -37,7 +36,7 @@ After installation, the package **auto-registers** (Laravel package discovery):
 |---------|-------------|
 | **JWT validation** | RS256 via IdP JWKS; 10-hour access tokens |
 | **Middleware** | `company.auth` — protects routes, 401/redirect on failure |
-| **`SsoUser` model** | Local profile (`id` = JWT `sub`, `email`, `name`) for Laravel Auth / Spatie |
+| **`users` table** | Local profile (`id` = JWT `sub`, `email`, `name`) for `Auth::guard('sso')` / Spatie |
 | **`sso` guard** | `Auth::guard('sso')->user()` after authentication |
 | **OAuth callback** | `GET /oauth/callback` — code exchange, sync user, set cookie |
 | **Token expired page** | `GET /oauth/token-expired` — browser UX when JWT expires |
@@ -201,7 +200,7 @@ The IdP authorization flow must redirect the browser to this URL with a one-time
 | Claim | Required | Notes |
 |-------|----------|--------|
 | `sub` | Yes | UUID; becomes `users.id` |
-| `email` | Yes | Used for `SsoUser.email` |
+| `email` | Yes | Stored on `users.email` |
 | `name` | No | Display name; falls back to `email` |
 | `aud` | Yes | Must equal `SSO_PROJECT_ID` |
 | `iss` | Yes | Must equal IdP URL (`CompanyAuth::idpUrl()`) |
@@ -226,14 +225,14 @@ If `users` does not exist, the migration creates:
 
 If `users` already exists (typical Laravel app), the migration is **non-destructive**: it only adds a nullable `password` column when that column is missing. It never renames columns, changes column types, or drops anything.
 
-**When rows are written**
+**Profile sync flow**
 
-| Event | DB action |
-|-------|-----------|
-| User completes `GET /oauth/callback` | **Upsert** `SsoUser` from JWT claims (login) |
-| Each protected request | **Read only** — `find(sub)`; no sync |
+| When | What happens |
+|------|----------------|
+| **Login** (`GET /oauth/callback`) | JWT validated → row upserted in `users` from `sub`, `email`, `name` → cookie set |
+| **Each request** (`company.auth`) | JWT validated → `users` row loaded by `sub` → `Auth::guard('sso')->setUser()` (read only) |
 
-If someone has a valid cookie but never hit callback on this app, `company.auth` returns **401** with *"User profile not found. Please sign in again via SSO."*
+If someone has a valid cookie but never completed callback on this app, `company.auth` returns **401** with *"User profile not found. Please sign in again via SSO."*
 
 ---
 
@@ -267,14 +266,14 @@ These are loaded from `routes/company-auth.php` (no manual import needed):
 
 | Alias | Purpose |
 |-------|---------|
-| `company.auth` | Protected routes — validate JWT, load `SsoUser`, set `Auth::guard('sso')` |
+| `company.auth` | Protected routes — validate JWT, load `users` row, set `Auth::guard('sso')` |
 | `company.guest` | Login routes — if valid JWT + `users` row exists, redirect to `SSO_REDIRECT_AFTER_LOGIN` (replaces Laravel `guest` for JWT) |
 
 ---
 
 ## 9. Wire your application routes
 
-Protected browser routes need **`web`** (session + CSRF for forms) and **`company.auth`** (JWT + `SsoUser`).
+Protected browser routes need **`web`** (session + CSRF for forms) and **`company.auth`** (JWT + local `users` profile).
 
 ```php
 // routes/web.php
@@ -305,7 +304,7 @@ Route::middleware(['web', 'company.auth'])->group(function () {
 
 ### JWT claims — `CurrentUser` facade
 
-Use when you need IdP claims not stored on `SsoUser` (e.g. `project_role`, `global_role`):
+Use when you need IdP claims not stored on `users` (e.g. `project_role`, `global_role`):
 
 ```php
 use Baaboo\InternalToolComposerAuthPackage\Facades\CurrentUser;
@@ -324,19 +323,25 @@ Use for policies, gates, Spatie, and anything that expects `Authenticatable`:
 
 ```php
 use Illuminate\Support\Facades\Auth;
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 
-/** @var SsoUser|null $user */
 $user = Auth::guard('sso')->user();
 
 if ($user !== null) {
-    $user->id;      // UUID
+    $user->id;      // UUID — same as JWT sub
     $user->email;
     $user->name;
 }
 ```
 
-The package registers the `sso` guard and `sso_users` auth provider (config key) automatically. See **[SSO_USER.md](./SSO_USER.md)** for extending the model.
+The package registers the `sso` guard automatically. The auth provider config key is `sso_users` (historical name); the Eloquent model uses table **`users`**.
+
+| Constant | Value |
+|----------|--------|
+| `CompanyAuth::SSO_GUARD` | `sso` |
+| `CompanyAuth::SSO_USER_PROVIDER` | `sso_users` (provider key only) |
+| Database table | `users` |
+
+These are fixed in code — not overridable via `company-auth.php`.
 
 ---
 
@@ -368,26 +373,31 @@ Route::middleware(['web', 'company.auth'])->get('/me', MeController::class);
 ## 12. Optional: Spatie Laravel Permission
 
 1. Install Spatie in the consuming app and run its migrations (`roles`, `permissions`, pivots).
-2. Extend the package model:
+2. Extend the package authenticatable (table `users`) in your app, e.g. `App\Models\User`:
 
 ```php
-// app/Models/SsoUser.php
 namespace App\Models;
 
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser as BaseSsoUser;
 use Spatie\Permission\Traits\HasRoles;
 
-class SsoUser extends BaseSsoUser
+class User extends \Baaboo\InternalToolComposerAuthPackage\Models\SsoUser
 {
     use HasRoles;
 }
 ```
 
-3. Point Spatie’s permission config at your subclass (see [SSO_USER.md](./SSO_USER.md)).
+3. Point Spatie’s permission config at your subclass:
+
+```php
+// config/permission.php
+'models' => [
+    'user' => \App\Models\User::class,
+],
+```
 
 4. Use `Auth::guard('sso')->user()->can('reports.export')` on protected routes.
 
-The guard name (`sso`), auth provider key (`sso_users`), and package `SsoUser` model (table `users`) are **fixed** in code — not overridable via `company-auth.php`.
+JWT `sub` must match `users.id`. Wire Spatie to your subclass in **app** config — not in `company-auth.php`.
 
 Fine-grained permissions remain **per tool**; the IdP JWT only supplies coarse `project_role`.
 
@@ -410,7 +420,7 @@ Fine-grained permissions remain **per tool**; the IdP JWT only supplies coarse `
 
 4. Subsequent requests:
    - company.auth validates JWT
-   - Loads SsoUser by sub
+   - Loads `users` row by `sub`
    - Sets Auth::guard('sso')->user()
 
 5. JWT expires (browser):
@@ -503,7 +513,6 @@ php artisan route:list --path=oauth
 
 | Document | Topic |
 |----------|--------|
-| [SSO_USER.md](./SSO_USER.md) | `SsoUser`, `sso` guard, Spatie |
 | [SECURE_DEFAULTS.md](./SECURE_DEFAULTS.md) | Cookies, CSRF, revoke, logout |
 | [CURSOR_CONTEXT.md](../CURSOR_CONTEXT.md) | JWT contract, package API |
 | [TODO.md](./TODO.md) | Logout, revoke, roadmap |

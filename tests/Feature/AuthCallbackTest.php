@@ -46,7 +46,7 @@ test('GET /oauth/callback exchanges code, sets token cookie, and redirects', fun
     $response->assertRedirect('/');
     $response->assertCookie(CompanyAuth::TOKEN_COOKIE_NAME);
 
-    $this->assertDatabaseHas('sso_users', [
+    $this->assertDatabaseHas('users', [
         'id' => 'test-user-id',
         'email' => 'jane@company.test',
     ]);

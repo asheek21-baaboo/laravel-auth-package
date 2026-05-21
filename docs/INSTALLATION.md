@@ -16,7 +16,7 @@ For package behaviour and JWT contract, see **[CURSOR_CONTEXT.md](../CURSOR_CONT
 4. [Publish configuration and migrations](#4-publish-configuration-and-migrations)
 5. [Environment variables](#5-environment-variables)
 6. [Register the app on the IdP](#6-register-the-app-on-the-idp)
-7. [Database: `sso_users`](#7-database-sso_users)
+7. [Database: `users`](#7-database-users)
 8. [Routes provided by the package](#8-routes-provided-by-the-package)
 9. [Wire your application routes](#9-wire-your-application-routes)
 10. [Accessing the current user](#10-accessing-the-current-user)
@@ -53,7 +53,7 @@ You do **not** implement token parsing, signature verification, or JWKS fetching
 |-------------|-----------------|
 | PHP | `^8.2` |
 | Laravel | 10, 11, or 12 (package uses `illuminate/*` components) |
-| Database | MySQL, PostgreSQL, SQLite, etc. — for `sso_users` table |
+| Database | MySQL, PostgreSQL, SQLite, etc. — for `users` table (existing or created by package) |
 | Cache | Laravel cache store — JWKS public keys cached 1 hour |
 | HTTPS | Required in production |
 | IdP | Company SSO at `https://auth.company.com` (override locally) |
@@ -110,7 +110,7 @@ If you skip publishing, the package merges defaults from vendor.
 
 ### Migrations (optional)
 
-The package **auto-loads** the `sso_users` migration on `php artisan migrate`. To copy the migration into your app (e.g. for customization):
+The package **auto-loads** the `users` migration on `php artisan migrate` (skips table creation if `users` already exists). To copy the migration into your app (e.g. for customization):
 
 ```bash
 php artisan vendor:publish --tag=company-auth-migrations
@@ -200,7 +200,7 @@ The IdP authorization flow must redirect the browser to this URL with a one-time
 
 | Claim | Required | Notes |
 |-------|----------|--------|
-| `sub` | Yes | UUID; becomes `sso_users.id` |
+| `sub` | Yes | UUID; becomes `users.id` |
 | `email` | Yes | Used for `SsoUser.email` |
 | `name` | No | Display name; falls back to `email` |
 | `aud` | Yes | Must equal `SSO_PROJECT_ID` |
@@ -212,16 +212,19 @@ The IdP authorization flow must redirect the browser to this URL with a one-time
 
 ---
 
-## 7. Database: `sso_users`
+## 7. Database: `users`
 
-The migration creates:
+If `users` does not exist, the migration creates:
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID, PK | Same as JWT `sub` |
 | `email` | string | From JWT |
 | `name` | string, nullable | From JWT `name` or email |
+| `password` | string, nullable | No local password for SSO users |
 | `created_at` / `updated_at` | timestamps | |
+
+If `users` already exists (typical Laravel app), the migration is **non-destructive**: it only adds a nullable `password` column when that column is missing. It never renames columns, changes column types, or drops anything.
 
 **When rows are written**
 
@@ -240,10 +243,8 @@ These are loaded from `routes/company-auth.php` (no manual import needed):
 
 | Method | Path | Route name(s) | Middleware |
 |--------|------|---------------|------------|
-| `GET` | `/login` | `login`, `company-auth.login` | `web`, `company.guest`, throttle |
-| `GET` | `/oauth/login` | `company-auth.login` (alias) | same as `/login` |
-| `POST` | `/logout` | `logout`, `company-auth.logout` | `web`, throttle |
-| `POST` | `/oauth/logout` | `company-auth.logout` (alias) | `web`, throttle |
+| `GET` | `/login` | `login` | `web`, `company.guest`, throttle |
+| `POST` | `/logout` | `logout` | `web`, throttle |
 | `GET` | `/oauth/callback` | `company-auth.callback` | `web`, throttle |
 | `GET` | `/oauth/token-expired` | `company-auth.token-expired` | `web`, throttle |
 
@@ -267,7 +268,7 @@ These are loaded from `routes/company-auth.php` (no manual import needed):
 | Alias | Purpose |
 |-------|---------|
 | `company.auth` | Protected routes — validate JWT, load `SsoUser`, set `Auth::guard('sso')` |
-| `company.guest` | Login routes — if valid JWT + `sso_users` row exists, redirect to `SSO_REDIRECT_AFTER_LOGIN` (replaces Laravel `guest` for JWT) |
+| `company.guest` | Login routes — if valid JWT + `users` row exists, redirect to `SSO_REDIRECT_AFTER_LOGIN` (replaces Laravel `guest` for JWT) |
 
 ---
 
@@ -335,7 +336,7 @@ if ($user !== null) {
 }
 ```
 
-The package registers the `sso` guard and `sso_users` provider automatically. See **[SSO_USER.md](./SSO_USER.md)** for extending the model.
+The package registers the `sso` guard and `sso_users` auth provider (config key) automatically. See **[SSO_USER.md](./SSO_USER.md)** for extending the model.
 
 ---
 
@@ -386,7 +387,7 @@ class SsoUser extends BaseSsoUser
 
 4. Use `Auth::guard('sso')->user()->can('reports.export')` on protected routes.
 
-The guard name (`sso`), provider (`sso_users`), and package `SsoUser` model are **fixed** in code — not overridable via `company-auth.php`.
+The guard name (`sso`), auth provider key (`sso_users`), and package `SsoUser` model (table `users`) are **fixed** in code — not overridable via `company-auth.php`.
 
 Fine-grained permissions remain **per tool**; the IdP JWT only supplies coarse `project_role`.
 
@@ -403,7 +404,7 @@ Fine-grained permissions remain **per tool**; the IdP JWT only supplies coarse `
 3. Package:
    - POSTs code to IdP /oauth/token
    - Validates JWT (signature, exp, iss, aud, jti)
-   - Upserts sso_users row
+   - Upserts `users` row
    - Sets httpOnly `token` cookie (10 hours)
    - Redirects to SSO_REDIRECT_AFTER_LOGIN
 
@@ -430,11 +431,11 @@ Use this after installation:
 
 - [ ] `composer require` succeeded; provider discovered
 - [ ] `SSO_PROJECT_ID` and `SSO_CLIENT_SECRET` set in `.env`
-- [ ] `php artisan migrate` — `sso_users` table exists
+- [ ] `php artisan migrate` — `users` table ready (`password` nullable if table pre-existed)
 - [ ] IdP registry redirect URI = `{APP_URL}/oauth/callback`
 - [ ] `php artisan route:list` shows `company-auth.callback` and `company-auth.token-expired`
 - [ ] Protected routes use `middleware(['web', 'company.auth'])`
-- [ ] Login flow: callback sets `token` cookie and creates `sso_users` row
+- [ ] Login flow: callback sets `token` cookie and creates/updates `users` row
 - [ ] `Auth::guard('sso')->user()` non-null on protected routes after login
 - [ ] `GET /me` returns 200 with `name`, `role`, `permissions` (if registered)
 - [ ] Expired token: browser → token-expired page; API → 401 JSON
@@ -451,7 +452,7 @@ Use this after installation:
 
 ### `401 User profile not found. Please sign in again via SSO.`
 
-- JWT is valid but no `sso_users` row for `sub`.
+- JWT is valid but no `users` row for `sub`.
 - User must complete `/oauth/callback` at least once on **this** app (not only another tool).
 
 ### `403` on `/oauth/callback`
@@ -491,7 +492,7 @@ php artisan vendor:publish --tag=company-auth-config
 # Publish migration copy (optional)
 php artisan vendor:publish --tag=company-auth-migrations
 
-# Run migrations (includes package sso_users if not published)
+# Run migrations (includes package users migration if not published)
 php artisan migrate
 
 # List package auth routes

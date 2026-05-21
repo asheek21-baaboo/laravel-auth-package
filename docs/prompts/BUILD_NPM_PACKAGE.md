@@ -43,7 +43,7 @@ You are building the **internal SSO npm monorepo** `@baaboo/company-auth-*` for 
 | JWT in browser | **FORBIDDEN.** Never export verify/decode JWT from packages imported by the browser. Validation only in `company-auth-server`. |
 | Identity in SPA | **`GET /me`** with `credentials: 'include'` only. |
 | Cookie name | `token`, httpOnly, 10 hours, SameSite=Lax. |
-| Routes (canonical) | `GET /oauth/callback`, `GET /oauth/token-expired`, `GET /me` (protected). |
+| Routes (canonical) | `GET /login`, `POST /logout`, `GET /oauth/callback`, `GET /oauth/token-expired`, `GET /me` (protected). |
 | Env vars | `SSO_PROJECT_ID`, `SSO_CLIENT_SECRET`, `SSO_CLIENT_ID` (optional), `SSO_REDIRECT_AFTER_LOGIN`, `IDP_URL` (local). |
 | `/me` JSON | `{ name, role, permissions }` — `permissions` is `["*"]` only when `project_role === "admin"`. |
 | `projectId` on user | Map from JWT claim **`aud`** (same as PHP `CurrentUserService::projectId()`). |
@@ -172,7 +172,6 @@ Plus always:
 Do **not** fully implement yet; export TODO or omit:
 
 - `POST /oauth/revoke` + revocation blacklist
-- `POST /oauth/logout`
 - `iss`/`aud` check on every request (optional config flag stub)
 
 Add `// PLANNED` comments and failing tests skipped with `describe.skip`.

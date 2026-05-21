@@ -31,8 +31,8 @@ When the 10-hour JWT expires, browser users need a clear path back to SSO (no re
 ### Still to do / align
 
 - [ ] **Route naming & paths** — package registers `GET /oauth/token-expired` (`company-auth.token-expired`); docs often say `/auth/token-expired`. Decide canonical path (`/auth/*` vs `/oauth/*`) and align routes, `CURSOR_CONTEXT.md`, and `SECURE_DEFAULTS.md`
-- [x] **Login route** — `GET /login` + `GET /oauth/login` → IdP authorize (`company.guest`)
-- [x] **Token-expired CTA** — links to `route('company-auth.login')`
+- [x] **Login route** — `GET /login` → IdP authorize (`company.guest`)
+- [x] **Token-expired CTA** — links to `route('login')`
 - [ ] **Publish / override view** — allow consuming apps to publish `token-expired` blade or override controller for branding
 - [ ] **Direct visit to token-expired** — document behaviour when user opens the page without an expired cookie (informational only vs redirect home)
 - [ ] **Logging** — log token-expiry events (actor if known from stale cookie, IP, UA, timestamp) per §11.2
@@ -55,7 +55,7 @@ Expired JWT on protected page
 
 Implemented — see **SECURE_DEFAULTS.md §9** and **INSTALLATION.md**.
 
-- [x] `AuthLogoutController` — `POST /logout` + `POST /oauth/logout` (`logout`, `company-auth.logout`)
+- [x] `AuthLogoutController` — `POST /logout` (`logout`)
 - [x] Clear `token` cookie + `SsoJwtGuard::logout()`
 - [x] Optional IdP logout (`SSO_REDIRECT_TO_IDP_LOGOUT`, default `true`)
 - [x] `SSO_REDIRECT_AFTER_LOGOUT` when IdP logout disabled

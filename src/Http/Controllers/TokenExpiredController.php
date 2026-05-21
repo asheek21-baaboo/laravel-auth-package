@@ -15,7 +15,7 @@ final class TokenExpiredController extends Controller
 
         return response(
             view()->file($path, [
-                'loginUrl' => route('company-auth.login'),
+                'loginUrl' => route('login'),
             ])->render(),
         )->header('Content-Type', 'text/html; charset=UTF-8');
     }

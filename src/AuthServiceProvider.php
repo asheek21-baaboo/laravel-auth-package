@@ -48,7 +48,7 @@ final class AuthServiceProvider extends ServiceProvider
             __DIR__.'/../config/company-auth.php' => config_path('company-auth.php'),
         ], 'company-auth-config');
 
-        $migration = '2025_05_19_000001_create_sso_users_table.php';
+        $migration = '2025_05_19_000001_ensure_users_table_for_company_auth.php';
         $this->publishes([
             __DIR__.'/../database/migrations/'.$migration => database_path('migrations/'.$migration),
         ], 'company-auth-migrations');

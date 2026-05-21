@@ -23,7 +23,7 @@ class SsoUser extends Model implements AuthenticatableContract
 
     protected $keyType = 'string';
 
-    protected $table = 'sso_users';
+    protected $table = 'users';
 
     /**
      * @var list<string>
@@ -37,5 +37,13 @@ class SsoUser extends Model implements AuthenticatableContract
     public function getAuthPasswordName(): string
     {
         return 'password';
+    }
+
+    /**
+     * SSO users never authenticate with a local password.
+     */
+    public function getAuthPassword(): string
+    {
+        return '';
     }
 }

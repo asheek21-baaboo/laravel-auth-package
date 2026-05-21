@@ -7,5 +7,5 @@ test('GET /oauth/token-expired renders SSO message and login link', function () 
         ->assertOk()
         ->assertSee('Token expired, please log in via SSO.', false)
         ->assertSee('Log in via SSO', false)
-        ->assertSee(route('company-auth.login'), false);
+        ->assertSee(route('login'), false);
 });

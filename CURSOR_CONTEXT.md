@@ -54,11 +54,11 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | Enforce `sub` / `jti` revocation blacklist on user requests | **Planned** — `AuthMiddleware` after JWT verify |
 | Expose current user to controllers | `CurrentUser` facade + `Auth::guard('sso')->user()` (`SsoUser`) |
 | Sync local user profile on login | `SsoUserSynchronizer` on `GET /oauth/callback` |
-| `sso_users` migration (publishable) | `database/migrations/*_create_sso_users_table.php` |
+| `users` migration (non-destructive when table already exists) | `database/migrations/*_ensure_users_table_for_company_auth.php` |
 | `GET /login` | `AuthLoginController` — redirect to IdP OAuth authorize (`company.guest`) |
 | `POST /logout` | `AuthLogoutController` — clear cookie, optional IdP logout |
 | `company.guest` middleware | JWT-aware “guest” — redirect authenticated users away from login |
-| `GET /oauth/token-expired` | `TokenExpiredController` — HTML page with link to `company-auth.login` |
+| `GET /oauth/token-expired` | `TokenExpiredController` — HTML page with link to `login` |
 | `GET /me` controller (`MeController`) | Consuming app registers on `web` + `company.auth` |
 | Bootstrap everything via auto-discovery | `AuthServiceProvider` (Laravel package auto-discovery) |
 

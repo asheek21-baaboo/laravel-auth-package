@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Baaboo\InternalToolComposerAuthPackage\Services;
 
 use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
+use Illuminate\Support\Facades\Schema;
 use stdClass;
 
 /**
@@ -29,12 +30,25 @@ final class SsoUserSynchronizer
             $name = $email;
         }
 
+        $attributes = ['email' => $email];
+
+        if ($this->tableHasColumn('name')) {
+            $attributes['name'] = $name;
+        }
+
         /** @var SsoUser $user */
         $user = SsoUser::query()->updateOrCreate(
             ['id' => $id],
-            ['email' => $email, 'name' => $name],
+            $attributes,
         );
 
         return $user;
+    }
+
+    private function tableHasColumn(string $column): bool
+    {
+        $table = (new SsoUser)->getTable();
+
+        return Schema::hasTable($table) && Schema::hasColumn($table, $column);
     }
 }

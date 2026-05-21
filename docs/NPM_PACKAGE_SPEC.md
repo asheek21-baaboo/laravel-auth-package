@@ -12,10 +12,41 @@
 
 | Stack | Install | Responsibility |
 |-------|---------|----------------|
-| **Laravel internal tool** | `composer require baaboo/internal-tool-composer-auth-package` only | Server auth (callback, JWT verify, cookie, `/me`). Optional thin npm **client-only** later. |
-| **JS/TS app (React, Vue, Next, Express, etc.)** | npm packages below | **Server** parity with composer + **browser** hooks. No Composer. |
+| **Laravel internal tool** | `composer require baaboo/internal-tool-composer-auth-package` only | Server auth (callback, login, logout, JWT verify, cookie, `users` table sync, `sso` guard, `/me`). Optional thin npm **client-only** later. |
+| **JS/TS app (React, Vue, Next, Express, etc.)** | npm packages below | **Server** parity with composer **routes + middleware behaviour** + **browser** hooks. No Composer, no Eloquent. |
 
 **Inertia is out of scope** for the npm design.
+
+### 1.1 PHP features vs npm (evaluation after `users` table / login / logout)
+
+| PHP (composer) | Needed in npm? | Notes |
+|----------------|----------------|-------|
+| `users` table + migration | **No (v1)** | Integrates with existing Laravel `users` schema; see §1.2. Node keeps identity on `req.auth` from JWT only. |
+| `Auth::guard('sso')` / JWT guard | **No** | Laravel Auth integration only. |
+| `SsoRequestAuthenticator` | **Internal** | Same logic inside middleware/handlers; not a public npm export. |
+| Callback upsert into `users` | **No (v1)** | Composer upserts `id` / `email` / `name` on `GET /oauth/callback` only; not on every request. |
+| `GET /login`, `company.guest` | **Yes** | Redirect to IdP authorize; redirect away if already authenticated (JWT valid). |
+| `POST /logout` | **Yes** | Clear cookie; optional redirect to IdP `/logout`. |
+| `SsoAuthorizationUrlBuilder` | **Yes** | `buildAuthorizeUrl()`, `buildLogoutUrl()` in `core` or `server`. |
+| `401` “User profile not found…” | **Optional** | PHP `company.auth` when JWT is valid but no matching `users` row. Node **skips** unless `requireLocalUser: true` + store implemented later. |
+
+**Conclusion:** Most new PHP code is **Laravel-only**. npm needs **constants + URL builders + routes + guest middleware + logout client helper** — not Eloquent, guards, or migrations.
+
+### 1.2 Laravel `users` table (composer only)
+
+The PHP package stores a local profile in the app’s **`users`** table (not a separate `sso_users` table). npm v1 has **no** equivalent.
+
+| Topic | Composer behaviour |
+|-------|-------------------|
+| **Table name** | `users` — same as typical Laravel apps |
+| **Migration** | `ensure_users_table_for_company_auth`: creates `users` only when missing; if the table already exists, only adds nullable `password` when absent (no `change()` on other columns) |
+| **Legacy rename** | `rename_sso_users_table_to_users` runs only when `sso_users` exists and `users` does not |
+| **Columns (new table)** | `id` (UUID, PK = JWT `sub`), `email`, `name` (nullable), `password` (nullable), timestamps |
+| **Login** | Upsert row from JWT `sub`, `email`, `name` (or email fallback) |
+| **Each request** | JWT verified every time (JWKS public key cached 3600s — **not** the token); `users` row loaded by `sub` |
+| **Auth provider key** | Config key `sso_users` (historical name); model uses table `users` |
+
+See `docs/INSTALLATION.md` §7 and `docs/SSO_USER.md` for Laravel integration.
 
 ---
 
@@ -118,6 +149,8 @@ Implement in `packages/core/src/constants.ts`:
 | `IDP_URL` | `https://auth.company.com` | Production IdP |
 | `JWKS_PATH` | `/.well-known/jwks.json` | |
 | `TOKEN_EXCHANGE_PATH` | `/oauth/token` | POST JSON |
+| `OAUTH_AUTHORIZE_PATH` | `/oauth/authorize` | Browser login redirect |
+| `IDP_LOGOUT_PATH` | `/logout` | Global IdP logout |
 | `JWKS_CACHE_TTL_SECONDS` | `3600` | |
 | `TOKEN_COOKIE_NAME` | `token` | httpOnly |
 | `TOKEN_COOKIE_MAX_AGE_SECONDS` | `36000` | 10 hours (= 600 min) |
@@ -141,7 +174,9 @@ Must match `config/company-auth.php` in the composer repo:
 | `SSO_PROJECT_ID` | Yes | `projectId` | Tool slug; JWT `aud` must match at callback |
 | `SSO_CLIENT_SECRET` | Yes | `clientSecret` | Code exchange |
 | `SSO_CLIENT_ID` | No | `clientId` | Defaults to `SSO_PROJECT_ID` |
-| `SSO_REDIRECT_AFTER_LOGIN` | No | `redirectAfterLogin` | Default `/` |
+| `SSO_REDIRECT_AFTER_LOGIN` | No | `redirectAfterLogin` | Default `/`; also guest redirect when already logged in |
+| `SSO_REDIRECT_AFTER_LOGOUT` | No | `redirectAfterLogout` | Default `/login` when IdP logout disabled |
+| `SSO_REDIRECT_TO_IDP_LOGOUT` | No | `redirectToIdpLogout` | Default `true` — POST logout → IdP `/logout` |
 | `IDP_URL` | Local only | `idpUrl` | Override IdP base URL |
 | `NODE_ENV` | — | — | `local` / `development` enables `IDP_URL` override |
 
@@ -159,6 +194,7 @@ Load via `loadConfig()` in core that throws clear errors if `SSO_PROJECT_ID` or 
 |-------|------|---------|
 | `sub` | string (UUID) | `user.id` |
 | `email` | string | `user.email`, `/me` `name` |
+| `name` | string | Optional; stored on `users.name` in PHP (fallback `email`). Not required for `/me`. |
 | `global_role` | string | `user.globalRole` |
 | `project_role` | string | `user.role`, `/me` `role` |
 | `aud` | string | Callback validation; `user.projectId` (PHP `CurrentUser::projectId()` reads **`aud`**, not `project_id`) |
@@ -213,6 +249,8 @@ export interface CompanyAuthConfig {
   clientId: string;
   clientSecret: string;
   redirectAfterLogin: string;
+  redirectAfterLogout: string;
+  redirectToIdpLogout: boolean;
   idpUrl: string;
   nodeEnv: string;
 }
@@ -267,6 +305,7 @@ Mirror PHP exception messages **exactly** for API responses:
 | Code | HTTP | Message |
 |------|------|---------|
 | `UNAUTHENTICATED` | 401 | `Unauthenticated.` |
+| `USER_PROFILE_NOT_FOUND` | 401 | `User profile not found. Please sign in again via SSO.` | Laravel only when `users` row missing; omit in npm v1 unless local user store enabled |
 | `TOKEN_EXPIRED` | 401 | `Token has expired.` |
 | `INVALID_SIGNATURE` | 401 | `Token signature is invalid.` |
 | `MALFORMED_TOKEN` | 401 | `Token is malformed.` + reason |
@@ -290,13 +329,24 @@ export async function fetchMe(baseUrl: string): Promise<MeResponse>
 - 401 → throw `AuthError` with body message
 - No JWT handling
 
-Optional:
-
 ```ts
-export async function logout(baseUrl: string, csrfToken: string): Promise<void>
+export async function logout(
+  baseUrl: string,
+  options?: { csrfToken?: string; path?: string },
+): Promise<void>
 ```
 
-`POST ${baseUrl}/oauth/logout` with `X-XSRF-TOKEN` — **(planned)** until server implements logout; stub and document.
+- Default `POST ${baseUrl}/logout` (same path as PHP package).
+- Send CSRF header when the host app uses cookie-based CSRF (e.g. `X-XSRF-TOKEN` for Laravel `web` stack).
+- `credentials: 'include'`.
+- Follow redirect (IdP logout or app `/login`).
+- Does **not** clear identity in JS — cookie cleared by `Set-Cookie` from server.
+
+```ts
+export function loginUrl(baseUrl: string, path = '/login'): string
+```
+
+Absolute URL to the app login route (redirects to IdP). Use for links from SPA when not same-origin router.
 
 ---
 
@@ -328,7 +378,21 @@ After `TokenValidator.validate`:
 
 Return claims.
 
-### 8.3 `IdpTokenExchanger`
+### 8.3 `buildAuthorizeUrl(config, callbackAbsoluteUrl): string`
+
+Parity with PHP `SsoAuthorizationUrlBuilder::authorizeUrl()`:
+
+Query params: `client_id`, `redirect_uri`, `response_type=code`, `project_id`.
+
+Return `` `${idpUrl(config)}${OAUTH_AUTHORIZE_PATH}?${query}` ``.
+
+### 8.4 `buildLogoutUrl(config): string`
+
+Parity with PHP `SsoAuthorizationUrlBuilder::logoutUrl()`:
+
+`` `${idpUrl(config)}${IDP_LOGOUT_PATH}` ``
+
+### 8.5 `IdpTokenExchanger`
 
 Parity with PHP `IdpTokenExchanger`:
 
@@ -351,7 +415,7 @@ Expect 200 body: `{ "access_token": string, "expires_in": number, "token_type": 
 
 Throw on missing config with messages matching PHP (`SSO_PROJECT_ID is not configured.`, etc.).
 
-### 8.4 `extractToken(request)`
+### 8.6 `extractToken(request)`
 
 Priority:
 
@@ -360,7 +424,7 @@ Priority:
 
 Framework-agnostic helper from headers + cookie header string.
 
-### 8.5 `createAuthMiddleware(options)`
+### 8.7 `createAuthMiddleware(options)`
 
 Returns Connect/Express-style `(req, res, next)` or generic handler:
 
@@ -371,19 +435,53 @@ Returns Connect/Express-style `(req, res, next)` or generic handler:
 3. Attach `req.auth = { user: claimsToUser(claims), claims }`
 4. `next()`
 
+**v1:** Do **not** require a local user DB row (unlike PHP `company.auth` + `users`).
+
+Options: `{ enforceLocalUser?: boolean }` — reserved for future parity; default `false`.
+
 **(planned v1.1)** After validate: check revocation blacklist for `sub` / `jti`.
 
-### 8.6 HTTP route handlers (register on consuming app)
+### 8.8 `createGuestMiddleware(options)`
 
-| Method | Path | Name | Behaviour |
-|--------|------|------|-----------|
-| `GET` | `/oauth/callback` | `company-auth.callback` | See §8.7 |
-| `GET` | `/oauth/token-expired` | `company-auth.token-expired` | HTML page §8.8 |
-| `GET` | `/me` | — | Protected; returns `claimsToMe` JSON |
+Parity with PHP `company.guest` (`GuestMiddleware`):
 
-Throttle: document 20/min callback, 60/min token-expired (implement if adapter supports).
+1. `extractToken` → if null: `next()` (show login page)
+2. If token validates → `302` to `redirectAfterLogin` (default `/`)
+3. On invalid/expired token: `next()` (do **not** 401 — allow login flow)
 
-### 8.7 Callback handler (`handleOAuthCallback`)
+**Do not** use framework `guest` middleware — it does not read the JWT cookie.
+
+### 8.9 HTTP route handlers (register on consuming app)
+
+| Method | Path | Route name (PHP) | Behaviour |
+|--------|------|------------------|-----------|
+| `GET` | `/login` | `login` | §8.10 — IdP authorize redirect (`company.guest`) |
+| `POST` | `/logout` | `logout` | §8.11 |
+| `GET` | `/oauth/callback` | `company-auth.callback` | §8.12 |
+| `GET` | `/oauth/token-expired` | `company-auth.token-expired` | HTML §8.13 |
+| `GET` | `/me` | — | Protected; `claimsToMe` JSON |
+
+Throttle (match PHP): 20/min callback; 60/min token-expired, login, logout.
+
+### 8.10 Login handler (`handleLogin`)
+
+Parity with `AuthLoginController`:
+
+1. `302` redirect to `buildAuthorizeUrl(config, callbackAbsoluteUrl)`
+2. Register with **guest** middleware (§8.8), not auth middleware
+
+### 8.11 Logout handler (`handleLogout`)
+
+Parity with `AuthLogoutController`:
+
+1. Clear `req.auth` if present
+2. `Set-Cookie` clear `token` (`clearTokenCookie`)
+3. If `redirectToIdpLogout` (default `true`): `302` to `buildLogoutUrl(config)`
+4. Else: `302` to `redirectAfterLogout` (default `/login`)
+
+**CSRF:** Document that consuming apps must protect `POST /logout` (e.g. Laravel `web` group).
+
+### 8.12 Callback handler (`handleOAuthCallback`)
 
 Parity with `AuthCallbackController`:
 
@@ -394,38 +492,40 @@ Parity with `AuthCallbackController`:
 5. `await CallbackJwtValidator.validate(jwt)`
 6. `302` redirect to `redirectAfterLogin` with `Set-Cookie` httpOnly `token`
 
-### 8.8 Token expired handler
+**Note:** PHP also upserts the `users` row on callback. npm v1 does not.
+
+### 8.13 Token expired handler
 
 Return `text/html` minimal page (port `resources/views/token-expired.blade.php`):
 
 - Title: `Session expired`
 - Copy: `Token expired, please log in via SSO.`
-- Link: `idpUrl(config)` with `rel="noopener noreferrer"`
+- Link: **`/login`** (or `buildAuthorizeUrl` via same-origin `/login`) — **not** raw IdP URL only
 
-### 8.9 Cookie helpers (`tokenCookie.ts`)
+### 8.14 Cookie helpers (`tokenCookie.ts`)
 
 `setTokenCookie(jwt: string, isProduction: boolean): string` → `Set-Cookie` header value  
 `clearTokenCookie(isProduction: boolean): string` → expire cookie
 
 Match PHP `TokenCookie` semantics.
 
-### 8.10 Framework adapters
+### 8.15 Framework adapters
 
 | Adapter | File | Notes |
 |---------|------|-------|
-| Express | `adapters/express.ts` | `companyAuthRouter(config)`, `requireAuth` middleware |
+| Express | `adapters/express.ts` | `companyAuthRouter(config)` mounts §8.9 routes; `requireAuth` + `guestAuth` middleware |
 | Hono | `adapters/hono.ts` | Same routes |
-| Next.js App Router | `adapters/next.ts` | Route handlers export `GET` for callback, token-expired, me; middleware helper |
+| Next.js App Router | `adapters/next.ts` | Route handlers: `login`, `logout`, callback, token-expired, me |
 
-Each adapter wires §8.6 handlers and documents `appUrl` (origin) requirement.
+Each adapter wires §8.9 handlers and documents `appUrl` (origin) requirement.
 
-### 8.11 Planned (stub interfaces + TODO tests)
+### 8.16 Planned (stub or omit until implemented)
 
 | Feature | Route | Notes |
 |---------|-------|-------|
 | Revoke | `POST /oauth/revoke` | Service JWT, `aud` = projectId, body `sub` / optional `jti` |
-| Logout | `POST /oauth/logout` | Clear cookie, CSRF |
-| Per-request `iss`/`aud` in middleware | — | Optional strict mode flag `enforceAudienceOnEveryRequest: true` |
+| Local `users` DB profile | — | Optional parity with PHP callback upsert (not v1) |
+| Per-request `iss`/`aud` in middleware | — | `enforceAudienceOnEveryRequest: true` |
 
 Mark exported but throw `new Error('Not implemented — see SECURE_DEFAULTS §8')` or omit until implemented.
 
@@ -462,14 +562,15 @@ Returns:
   error: AuthError | null;
   isAuthenticated: boolean;
   refetch: () => Promise<void>;
-  logout: () => Promise<void>;  // when server route exists
+  logout: () => Promise<void>;  // POST /logout via core logout()
 }
 ```
 
 ### 9.3 `RequireAuth`
 
 - While loading → render `fallback` prop or null
-- If !user → `Navigate` to `/oauth/token-expired` or `onUnauthenticated()`
+- If !user → `Navigate` to `loginPath` (default `/login`) or `onUnauthenticated()`
+- Use `/oauth/token-expired` only when UX should explain expiry (e.g. after 401 from `/me` with expired message)
 - Else children
 
 **Do not** read JWT in components.
@@ -503,7 +604,7 @@ For `vue-router`:
 export function createAuthRouterGuard(options?: { meUrl?: string; publicPaths?: string[] })
 ```
 
-`beforeEach`: if route requires auth, ensure `useAuth().user` loaded; else redirect to token-expired or login.
+`beforeEach`: if route requires auth, ensure `useAuth().user` loaded; else redirect to **`/login`** (package route → IdP). Public paths: `/login`, `/oauth/callback`, `/oauth/token-expired`.
 
 ### 10.4 `AuthPlugin` component (optional)
 
@@ -571,19 +672,26 @@ If root meta-package exists, `postinstall` runs init **only when** `.company-aut
 
 | PHP (composer) | npm | Notes |
 |--------------|-----|-------|
-| `CompanyAuth` | `core/constants` + `idpUrl()` | |
+| `CompanyAuth` | `core/constants` + `idpUrl()` | Include `OAUTH_AUTHORIZE_PATH`, `IDP_LOGOUT_PATH` |
 | `TokenValidator` | `server/TokenValidator` | jose |
 | `CallbackJwtValidator` | `server/CallbackJwtValidator` | |
 | `IdpTokenExchanger` | `server/IdpTokenExchanger` | |
-| `AuthMiddleware` | `server/createAuthMiddleware` | |
-| `AuthCallbackController` | `server/handleOAuthCallback` | |
-| `TokenExpiredController` | `server/handleTokenExpired` | |
-| `MeController` | `server/handleMe` | |
+| `SsoAuthorizationUrlBuilder` | `buildAuthorizeUrl` / `buildLogoutUrl` | |
+| `AuthMiddleware` (`company.auth`) | `createAuthMiddleware` | No `users` check in npm v1 |
+| `GuestMiddleware` (`company.guest`) | `createGuestMiddleware` | JWT-aware |
+| `AuthLoginController` | `handleLogin` | `GET /login` |
+| `AuthLogoutController` | `handleLogout` | `POST /logout` |
+| `AuthCallbackController` | `handleOAuthCallback` | |
+| `TokenExpiredController` | `handleTokenExpired` | Link to `/login` |
+| `MeController` | `handleMe` | |
+| `users` table + migrations | — | **Laravel only** (v1); §1.2 |
+| `sso` guard (`Auth::guard('sso')`) | — | **Laravel only** |
+| Callback upsert into `users` | — | **Laravel only** |
 | `CurrentUserService` | `req.auth.user` / `claimsToUser` | |
 | `TokenCookie` | `server/tokenCookie` | |
 | `CurrentUser` facade | N/A (server); `useAuth` (client) | |
-| `routes/company-auth.php` | Adapter mounts `/oauth/*` | Same paths |
-| Config `SSO_*` | `loadConfig()` | |
+| `routes/company-auth.php` | Adapter mounts routes | `/login`, `/logout`, `/oauth/callback`, `/oauth/token-expired` |
+| Config `SSO_*` | `loadConfig()` | Include logout redirect flags |
 
 ---
 
@@ -592,7 +700,7 @@ If root meta-package exists, `postinstall` runs init **only when** `.company-aut
 | Area | Tool | Minimum cases |
 |------|------|----------------|
 | core | vitest | `claimsToMe`, `claimsToUser`, config loader errors |
-| server | vitest | TokenValidator (expired, bad sig, JWKS cache), CallbackJwtValidator (iss, aud, jti), IdpTokenExchanger mock fetch, middleware 401/redirect, callback sets cookie |
+| server | vitest | TokenValidator, CallbackJwtValidator, IdpTokenExchanger, `buildAuthorizeUrl`, auth middleware 401/redirect, **guest** redirects when JWT valid, login/logout handlers, callback sets cookie |
 | react | vitest + @testing-library/react | Provider loads /me, RequireAuth redirects |
 | vue | vitest + @vue/test-utils | plugin + composable |
 
@@ -621,11 +729,12 @@ Use a local RSA key pair + mock JWKS (mirror `tests/Support/TestJwt.php` in comp
 
 - No password storage or IdP implementation
 - No Google OAuth / MFA in package
-- No fine-grained permission resolution
+- No fine-grained permission resolution (no Spatie / policies in npm)
+- No `users` table, Eloquent profile, or `Auth::guard('sso')` in npm — use composer for Laravel
 - No JWT in browser bundle
 - No Inertia helpers
-- No automatic Laravel integration (composer handles Laravel)
+- No automatic Laravel integration (composer handles Laravel + DB profile)
 
 ---
 
-*Source of truth for PHP behaviour: repository `sso-composer-auth-package` — `src/`, `config/company-auth.php`, `routes/company-auth.php`, `docs/SECURE_DEFAULTS.md`.*
+*Source of truth for PHP behaviour: repository `sso-composer-auth-package` — `src/`, `config/company-auth.php`, `routes/company-auth.php`, `docs/INSTALLATION.md`, `docs/SECURE_DEFAULTS.md`, `docs/SSO_USER.md` (Laravel `users` table + `sso` guard).*

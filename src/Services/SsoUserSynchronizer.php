@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace Baaboo\InternalToolComposerAuthPackage\Services;
 
 use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Schema;
 use stdClass;
 
 /**
- * Upserts {@see SsoUser} from validated JWT claims (login / callback only).
+ * Syncs {@see SsoUser} from validated JWT claims (login / callback only).
+ *
+ * When `createUser` is true, creates or updates the local row; otherwise returns the existing row unchanged.
  */
 final class SsoUserSynchronizer
 {
-    public function syncFromClaims(stdClass $claims): SsoUser
+    public function syncFromClaims(stdClass $claims): SsoUser|RedirectResponse
     {
         $id = $claims->sub ?? null;
         if (! is_string($id) || $id === '') {
@@ -36,11 +40,21 @@ final class SsoUserSynchronizer
             $attributes['name'] = $name;
         }
 
-        /** @var SsoUser $user */
-        $user = SsoUser::query()->updateOrCreate(
-            ['id' => $id],
-            $attributes,
-        );
+        if ($claims->createUser === true) {
+            /** @var SsoUser $user */
+            $user = SsoUser::query()->updateOrCreate(
+                ['id' => $id],
+                $attributes,
+            );
+
+            return $user;
+        }
+
+        $user = SsoUser::query()->find($id);
+
+        if ($user === null) {
+            return Redirect::route('company-auth.error', ['stub' => 'user_not_provisioned']);
+        }
 
         return $user;
     }

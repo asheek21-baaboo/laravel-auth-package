@@ -32,11 +32,8 @@ final class AuthLogoutController extends Controller
                 ->withCookie($forgetCookie);
         }
 
-        $destination = config('company-auth.redirect_after_logout', '/login');
-        if (! is_string($destination) || $destination === '') {
-            $destination = '/login';
-        }
-
-        return redirect($destination)->withCookie($forgetCookie);
+        return redirect()
+            ->route('company-auth.error', ['stub' => 'logged_out'])
+            ->withCookie($forgetCookie);
     }
 }

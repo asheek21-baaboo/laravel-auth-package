@@ -43,11 +43,11 @@ test('POST /logout clears token cookie and redirects to IdP logout by default', 
     $response->assertCookieExpired(CompanyAuth::TOKEN_COOKIE_NAME);
 });
 
-test('POST /logout redirects to app login when IdP logout is disabled', function () {
+test('POST /logout redirects to error page when IdP logout is disabled', function () {
     $this->withoutMiddleware(ValidateCsrfToken::class);
     config(['company-auth.redirect_to_idp_logout' => false]);
 
     $this->post('/logout')
-        ->assertRedirect('/login')
+        ->assertRedirect(route('company-auth.error', ['stub' => 'logged_out']))
         ->assertCookieExpired(CompanyAuth::TOKEN_COOKIE_NAME);
 });

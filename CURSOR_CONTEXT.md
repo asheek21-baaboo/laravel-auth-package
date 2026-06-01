@@ -59,6 +59,7 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | `POST /logout` | `AuthLogoutController` — clear cookie, optional IdP logout |
 | `company.guest` middleware | JWT-aware “guest” — redirect authenticated users away from login |
 | `GET /oauth/token-expired` | `TokenExpiredController` — HTML page with link to `login` |
+| `GET /oauth/error` | `ErrorController` — shared error view; `stub` → `config('company-auth.errors')` (`message`, `description`, `fallback`) |
 | `GET /me` controller (`MeController`) | Consuming app registers on `web` + `company.auth` |
 | Bootstrap everything via auto-discovery | `AuthServiceProvider` (Laravel package auto-discovery) |
 
@@ -78,6 +79,7 @@ Tokens are RS256-signed JWTs issued by the IdP. The package validates these toke
     'project_role' => 'manager',             // role within this project: admin | manager | editor | viewer
     'exp'          => 1234567890,            // 10-hour expiry timestamp (iat + 36000)
     'jti'          => 'unique-token-id',     // required — single-token revoke (see docs/SECURE_DEFAULTS.md §8)
+    'createUser'   => true,                  // when true, upsert local `users` row on callback; when false, use existing row only
 ]
 ```
 
@@ -131,9 +133,10 @@ sso-composer-auth-package/
 │       └── Controllers/
 │           ├── AuthCallbackController.php
 │           ├── TokenExpiredController.php
+│           ├── ErrorController.php
 │           └── MeController.php       # Wire GET /me on web routes in the consuming app
 ├── routes/
-│   └── company-auth.php               # GET /auth/callback, GET /auth/token-expired (auto-loaded)
+│   └── company-auth.php               # GET /oauth/callback, token-expired, error (auto-loaded)
 ├── tests/
 │   ├── TestCase.php                   # Base test case extending Orchestra\Testbench
 │   ├── Unit/
@@ -145,7 +148,8 @@ sso-composer-auth-package/
 │   └── company-auth.php               # `idp_url`, callback secrets, post-login redirect
 ├── resources/
 │   └── views/
-│       └── token-expired.blade.php   # Shown when JWT is expired (browser) or direct GET
+│       ├── token-expired.blade.php   # Shown when JWT is expired (browser) or direct GET
+│       └── error.blade.php           # Shared error view (dynamic message + description)
 ```
 
 ---

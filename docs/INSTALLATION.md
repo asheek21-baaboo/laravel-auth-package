@@ -3,7 +3,8 @@
 This document walks through installing and configuring the package in an **internal Laravel tool** (HR portal, CRM, ops dashboard, etc.) that authenticates users via the company SSO IdP.
 
 For security defaults (cookies, JWT, revocation, logout), see **[SECURE_DEFAULTS.md](./SECURE_DEFAULTS.md)**.  
-For package behaviour and JWT contract, see **[CURSOR_CONTEXT.md](../CURSOR_CONTEXT.md)**.
+For package behaviour and JWT contract, see **[CURSOR_CONTEXT.md](../CURSOR_CONTEXT.md)**.  
+For AI-assisted integration (Cursor, vibecoding agents), paste the one-liner from **[prompts/INTEGRATE_LARAVEL_SSO_PACKAGE.md](./prompts/INTEGRATE_LARAVEL_SSO_PACKAGE.md)** (see *Copy-paste into your agent*).
 
 ---
 
@@ -515,6 +516,7 @@ php artisan route:list --path=oauth
 |----------|--------|
 | [SECURE_DEFAULTS.md](./SECURE_DEFAULTS.md) | Cookies, CSRF, revoke, logout |
 | [CURSOR_CONTEXT.md](../CURSOR_CONTEXT.md) | JWT contract, package API |
+| [prompts/INTEGRATE_LARAVEL_SSO_PACKAGE.md](./prompts/INTEGRATE_LARAVEL_SSO_PACKAGE.md) | One-line AI prompt for full Laravel app integration |
 | [TODO.md](./TODO.md) | Logout, revoke, roadmap |
 
 ---

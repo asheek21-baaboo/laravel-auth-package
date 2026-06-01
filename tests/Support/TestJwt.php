@@ -22,6 +22,7 @@ final class TestJwt
             'global_role' => 'staff',
             'aud' => 'hr-portal',
             'project_role' => 'manager',
+            'createUser' => true,
             'iat' => $iat,
             'exp' => $iat + 900,
         ], $payloadOverrides);

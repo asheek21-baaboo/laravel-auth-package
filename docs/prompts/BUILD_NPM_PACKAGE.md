@@ -7,30 +7,15 @@
 
 ## PROMPT START
 
-You are building the **internal SSO npm monorepo** `@baaboo/company-auth-*` for JavaScript/TypeScript applications. This is the **parity implementation** of the existing PHP package `baaboo/internal-tool-composer-auth-package` in the sibling repository `sso-composer-auth-package`.
+You are building the **internal SSO npm monorepo** `@baaboo/company-auth-*` for JavaScript/TypeScript applications (React, Vue, Next.js, Express, Hono).
 
 ### Before writing any code
 
-1. Read **`NPM_PACKAGE_SPEC.md`** in full (same repo or provided by the user).
-2. Read these PHP source files for exact behaviour (user will attach repo or paths):
-   - `src/CompanyAuth.php`
-   - `src/TokenValidator.php`
-   - `src/AuthMiddleware.php`
-   - `src/Services/IdpTokenExchanger.php`
-   - `src/Services/CallbackJwtValidator.php`
-   - `src/Http/Controllers/AuthCallbackController.php`
-   - `src/Http/Controllers/MeController.php`
-   - `src/Http/Controllers/TokenExpiredController.php`
-   - `src/Support/TokenCookie.php`
-   - `src/CurrentUserService.php`
-   - `config/company-auth.php`
-   - `routes/company-auth.php`
-   - `resources/views/token-expired.blade.php`
-3. Read `docs/SECURE_DEFAULTS.md` for security rules.
+1. Read **`NPM_PACKAGE_SPEC.md`** in full — it is the contract.
+2. Read `docs/SECURE_DEFAULTS.md` for security rules (cookies, CSRF, revocation design).
+3. Optionally read `sso-composer-auth-package` reference sources if attached: `src/CompanyAuth.php`, `src/TokenValidator.php`, `src/AuthMiddleware.php`, `src/GuestMiddleware.php`, controllers under `src/Http/Controllers/`, `config/company-auth.php`, `routes/company-auth.php`.
 
 **Auth backend is the Laravel IdP** (`https://auth.company.com`). This npm repo is a **client library only** — it does not replace the IdP.
-
-**Inertia is not supported.** Do not add Inertia helpers.
 
 ---
 
@@ -38,15 +23,14 @@ You are building the **internal SSO npm monorepo** `@baaboo/company-auth-*` for 
 
 | Rule | Detail |
 |------|--------|
-| Laravel apps | Use **Composer package only** for server auth. npm **client** (`fetchMe` + hooks) is optional. Do not require Node server for Laravel. |
-| JS/TS apps (React, Vue, Next, Express) | Install **`@baaboo/company-auth-core` + `@baaboo/company-auth-server` + exactly one of react OR vue**. |
+| Install set | **`@baaboo/company-auth-core` + `@baaboo/company-auth-server` + exactly one of react OR vue**. |
 | JWT in browser | **FORBIDDEN.** Never export verify/decode JWT from packages imported by the browser. Validation only in `company-auth-server`. |
 | Identity in SPA | **`GET /me`** with `credentials: 'include'` only. |
 | Cookie name | `token`, httpOnly, 10 hours, SameSite=Lax. |
 | Routes (canonical) | `GET /login`, `POST /logout`, `GET /oauth/callback`, `GET /oauth/token-expired`, `GET /me` (protected). |
-| Env vars | `SSO_PROJECT_ID`, `SSO_CLIENT_SECRET`, `SSO_CLIENT_ID` (optional), `SSO_REDIRECT_AFTER_LOGIN`, `IDP_URL` (local). |
+| Env vars | `SSO_*` per spec §4; `appUrl` for callback origin. |
 | `/me` JSON | `{ name, role, permissions }` — `permissions` is `["*"]` only when `project_role === "admin"`. |
-| `projectId` on user | Map from JWT claim **`aud`** (same as PHP `CurrentUserService::projectId()`). |
+| `projectId` on user | Map from JWT claim **`aud`**. |
 
 ---
 
@@ -81,27 +65,27 @@ Implement exactly as specified in `NPM_PACKAGE_SPEC.md` sections 2–11.
 
 #### `@baaboo/company-auth-core`
 
-- [ ] Constants mirroring PHP `CompanyAuth`
+- [ ] Platform constants per spec §3
 - [ ] `idpUrl(config)` — production URL unless `NODE_ENV` is local/development and `IDP_URL` set
 - [ ] Types: `CompanyAuthConfig`, `JwtClaims`, `AuthUser`, `MeResponse`
 - [ ] `loadConfig()` from `process.env` with clear errors
 - [ ] `claimsToUser()`, `claimsToMe()`
-- [ ] `AuthError` with codes/messages matching PHP
-- [ ] `fetchMe(baseUrl)` — browser-safe, credentials include, no JWT
+- [ ] `AuthError` with codes/messages per spec §7.4
+- [ ] `fetchMe`, `logout`, `loginUrl` — browser-safe, no JWT
 
 #### `@baaboo/company-auth-server`
 
 - [ ] `TokenValidator` — JWKS fetch, cache key `baaboo_auth_jwks_public_key`, TTL 3600s
 - [ ] `CallbackJwtValidator` — iss, aud, jti after signature verify
-- [ ] `IdpTokenExchanger` — POST `/oauth/token` with same JSON body as PHP
+- [ ] `IdpTokenExchanger` — POST `/oauth/token` per spec §9.5
 - [ ] `extractToken` — Bearer then cookie `token`
-- [ ] `createAuthMiddleware` — 401 JSON; expired + HTML Accept → redirect `/oauth/token-expired` + clear cookie
-- [ ] `handleOAuthCallback` — code validation regex, exchange, validate, redirect + Set-Cookie
-- [ ] `handleTokenExpired` — HTML port of blade template
-- [ ] `handleMe` — returns `claimsToMe`
-- [ ] `tokenCookie` helpers — match PHP flags
-- [ ] Adapters: **Express**, **Hono**, **Next.js App Router** (route handler exports)
-- [ ] Unit tests with mock JWKS (generate RSA fixture like PHP `tests/Support/TestJwt.php`)
+- [ ] `UserStore` + `syncUserFromClaims` per spec §5
+- [ ] Reference SQL migrations under `migrations/` + README (consumer runs own migrate tool)
+- [ ] `createAuthMiddleware` + `createGuestMiddleware` per spec §9.7–9.8 (local user when store set)
+- [ ] `handleLogin`, `handleLogout`, `handleOAuthCallback`, `handleTokenExpired`, `handleMe`
+- [ ] `tokenCookie` helpers per spec §9.15
+- [ ] Adapters: **Express**, **Hono**, **Next.js App Router**
+- [ ] Unit tests with mock JWKS (local RSA fixture) + in-memory `UserStore`
 
 #### `@baaboo/company-auth-react`
 
@@ -119,14 +103,16 @@ Implement exactly as specified in `NPM_PACKAGE_SPEC.md` sections 2–11.
 
 #### `@baaboo/company-auth-cli`
 
-- [ ] `init` command — **interactive prompt:**
+- [ ] `init` command — **interactive prompts:**
   - **"Which framework does this project use?"** → React | Vue (required)
   - App URL (origin)
   - SSO_PROJECT_ID
+  - **"Store SSO users in a local database?"** → copy reference migrations + `userStore.ts` stub, or JWT-only
 - [ ] Install only: `core` + `server` + **chosen framework package** (never both react and vue)
 - [ ] Support `--framework react|vue` and `COMPANY_AUTH_FRAMEWORK` env for CI
-- [ ] Generate from `templates/`: `.env.example`, `company-auth.config.ts`, sample server + client setup
+- [ ] Generate from `templates/`: `.env.example`, `company-auth.config.ts`, optional `database/migrations/company-auth/*.sql`, sample server + client setup
 - [ ] Do not run interactive prompt when `CI=true`
+- [ ] Never auto-run migrations on install
 
 ---
 
@@ -150,9 +136,10 @@ Plus always:
 
 ---
 
-### Error messages (must match PHP literally)
+### Error messages (must match spec §8.4 literally)
 
 - `Unauthenticated.`
+- `User profile not found. Please sign in again via SSO.`
 - `Token has expired.`
 - `Token signature is invalid.`
 - `Token is malformed.`
@@ -181,11 +168,10 @@ Add `// PLANNED` comments and failing tests skipped with `describe.skip`.
 ### README content (required)
 
 1. **Architecture diagram** (IdP → tool server → SPA).
-2. **When to use Composer vs npm** (Laravel → Composer; Node SPA → npm).
-3. **Security:** no JWT in JS.
-4. **Quick start** for Express + React and Express + Vue.
-5. **Env var table** from spec.
-6. **IdP registration:** redirect URI = `{appUrl}/oauth/callback`.
+2. **Security:** no JWT in JS; CSRF on `POST /logout`.
+3. **Quick start** for Express + React and Express + Vue.
+4. **Env var table** from spec §4.
+5. **IdP registration:** redirect URI = `{appUrl}/oauth/callback`.
 
 ---
 
@@ -195,8 +181,8 @@ Add `// PLANNED` comments and failing tests skipped with `describe.skip`.
 - [ ] `pnpm build` emits ESM + types
 - [ ] React package does not depend on Vue and vice versa
 - [ ] Browser bundles contain zero `jose` / JWT verify code (verify with bundle analysis or export map discipline)
-- [ ] Route paths are `/oauth/callback` and `/oauth/token-expired` (not `/auth/*` unless spec updated)
-- [ ] Parity matrix in spec section 12 is satisfied
+- [ ] Route paths match spec §9.9 (`/login`, `/logout`, `/oauth/callback`, `/oauth/token-expired`, `/me`)
+- [ ] Reference migrations ship but are not executed by the package
 
 ---
 
@@ -216,8 +202,7 @@ When done, provide:
 
 1. File tree of the monorepo
 2. Install instructions for React and Vue apps
-3. List of any intentional deviations from PHP (should be empty or justified)
-4. Commands: `pnpm install`, `pnpm test`, `pnpm build`
+3. Commands: `pnpm install`, `pnpm test`, `pnpm build`
 
 ## PROMPT END
 
@@ -225,7 +210,7 @@ When done, provide:
 
 ### Usage notes for the human
 
-1. Create a new repo (e.g. `company-auth-npm`) — keep it separate from the Composer package repo.
+1. Create a new repo (e.g. `company-auth-npm`).
 2. Copy `docs/NPM_PACKAGE_SPEC.md` into that repo root (or submodule).
-3. Paste **PROMPT START → PROMPT END** into the agent with access to **both** repos.
-4. After generation, run parity review against PHP tests in `sso-composer-auth-package/tests/`.
+3. Paste **PROMPT START → PROMPT END** into the agent.
+4. After generation, validate behaviour against spec §8–12 and reference tests in `sso-composer-auth-package` if available.

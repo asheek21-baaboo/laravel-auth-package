@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 
 test('syncFromClaims creates sso user from jwt claims', function () {
@@ -11,6 +12,7 @@ test('syncFromClaims creates sso user from jwt claims', function () {
         'sub' => 'uuid-1',
         'email' => 'jane@company.test',
         'name' => 'Jane Doe',
+        'createUser' => true,
     ];
 
     $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
@@ -30,6 +32,7 @@ test('syncFromClaims uses email as name when name claim is missing', function ()
     $claims = (object) [
         'sub' => 'uuid-2',
         'email' => 'bob@company.test',
+        'createUser' => true,
     ];
 
     $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
@@ -49,6 +52,7 @@ test('syncFromClaims does not set name when users table has no name column', fun
         'sub' => 'uuid-4',
         'email' => 'no-name@company.test',
         'name' => 'Ignored',
+        'createUser' => true,
     ];
 
     $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
@@ -68,6 +72,7 @@ test('syncFromClaims updates existing user on login', function () {
         'sub' => 'uuid-3',
         'email' => 'new@company.test',
         'name' => 'New Name',
+        'createUser' => true,
     ];
 
     $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
@@ -75,4 +80,37 @@ test('syncFromClaims updates existing user on login', function () {
     expect($user->email)->toBe('new@company.test')
         ->and($user->name)->toBe('New Name')
         ->and(SsoUser::query()->count())->toBe(1);
+});
+
+test('syncFromClaims does not update existing user when createUser is false', function () {
+    SsoUser::query()->create([
+        'id' => 'uuid-5',
+        'email' => 'unchanged@company.test',
+        'name' => 'Unchanged',
+    ]);
+
+    $claims = (object) [
+        'sub' => 'uuid-5',
+        'email' => 'new@company.test',
+        'name' => 'New Name',
+        'createUser' => false,
+    ];
+
+    $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+
+    expect($user->email)->toBe('unchanged@company.test')
+        ->and($user->name)->toBe('Unchanged');
+});
+
+test('syncFromClaims redirects to error page when createUser is false and user does not exist', function () {
+    $claims = (object) [
+        'sub' => 'uuid-missing',
+        'email' => 'ghost@company.test',
+        'createUser' => false,
+    ];
+
+    $result = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+
+    expect($result)->toBeInstanceOf(RedirectResponse::class)
+        ->and($result->getTargetUrl())->toBe(route('company-auth.error', ['stub' => 'user_not_provisioned']));
 });

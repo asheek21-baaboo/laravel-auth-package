@@ -7,6 +7,7 @@ namespace Baaboo\InternalToolComposerAuthPackage\Http\Controllers;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\CodeExchangeException;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidCallbackTokenException;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidTokenException;
+use Baaboo\InternalToolComposerAuthPackage\Exceptions\UserNotProvisionedException;
 use Baaboo\InternalToolComposerAuthPackage\Services\CallbackJwtValidator;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
@@ -44,7 +45,11 @@ final class AuthCallbackController extends Controller
             abort(403, $e->getMessage());
         }
 
-        $this->ssoUserSynchronizer->syncFromClaims($claims);
+        try {
+            $this->ssoUserSynchronizer->syncFromClaims($claims);
+        } catch (UserNotProvisionedException) {
+            return redirect()->route('company-auth.error', ['stub' => 'user_not_provisioned']);
+        }
 
         $destination = config('company-auth.redirect_after_login', '/');
         if (! is_string($destination) || $destination === '') {

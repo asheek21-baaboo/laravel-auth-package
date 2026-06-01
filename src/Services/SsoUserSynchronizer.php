@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Baaboo\InternalToolComposerAuthPackage\Services;
 
+use Baaboo\InternalToolComposerAuthPackage\Exceptions\UserNotProvisionedException;
 use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Schema;
 use stdClass;
 
@@ -14,10 +13,12 @@ use stdClass;
  * Syncs {@see SsoUser} from validated JWT claims (login / callback only).
  *
  * When `createUser` is true, creates or updates the local row; otherwise returns the existing row unchanged.
+ *
+ * @throws UserNotProvisionedException when createUser is false and no local row exists
  */
 final class SsoUserSynchronizer
 {
-    public function syncFromClaims(stdClass $claims): SsoUser|RedirectResponse
+    public function syncFromClaims(stdClass $claims): SsoUser
     {
         $id = $claims->sub ?? null;
         if (! is_string($id) || $id === '') {
@@ -53,7 +54,7 @@ final class SsoUserSynchronizer
         $user = SsoUser::query()->find($id);
 
         if ($user === null) {
-            return Redirect::route('company-auth.error', ['stub' => 'user_not_provisioned']);
+            throw UserNotProvisionedException::forSub($id);
         }
 
         return $user;

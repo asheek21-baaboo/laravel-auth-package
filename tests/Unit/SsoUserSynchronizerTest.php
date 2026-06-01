@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use Baaboo\InternalToolComposerAuthPackage\Exceptions\UserNotProvisionedException;
 use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 
 test('syncFromClaims creates sso user from jwt claims', function () {
@@ -102,15 +102,12 @@ test('syncFromClaims does not update existing user when createUser is false', fu
         ->and($user->name)->toBe('Unchanged');
 });
 
-test('syncFromClaims redirects to error page when createUser is false and user does not exist', function () {
+test('syncFromClaims throws when createUser is false and user does not exist', function () {
     $claims = (object) [
         'sub' => 'uuid-missing',
         'email' => 'ghost@company.test',
         'createUser' => false,
     ];
 
-    $result = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
-
-    expect($result)->toBeInstanceOf(RedirectResponse::class)
-        ->and($result->getTargetUrl())->toBe(route('company-auth.error', ['stub' => 'user_not_provisioned']));
-});
+    app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+})->throws(UserNotProvisionedException::class);

@@ -67,6 +67,24 @@ test('GET /oauth/callback returns 403 when token aud does not match project', fu
         ->assertStatus(403);
 });
 
+test('GET /oauth/callback redirects to error page when user is not provisioned', function () {
+    $jwt = validCallbackJwt(['createUser' => false]);
+    $this->swapTokenValidatorWithJwks(TestJwt::jwks());
+    $this->swapIdpTokenExchanger(new MockHandler([
+        new Response(200, ['Content-Type' => 'application/json'], json_encode([
+            'access_token' => $jwt,
+            'token_type' => 'Bearer',
+            'expires_in' => CompanyAuth::ACCESS_TOKEN_TTL_SECONDS,
+        ])),
+    ]));
+
+    $this->get('/oauth/callback?code=one-time-code')
+        ->assertRedirect(route('company-auth.error', ['stub' => 'user_not_provisioned']))
+        ->assertCookieMissing(CompanyAuth::TOKEN_COOKIE_NAME);
+
+    $this->assertDatabaseMissing('users', ['id' => 'test-user-id']);
+});
+
 test('GET /oauth/callback returns 403 when IdP rejects the code', function () {
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
     $this->swapIdpTokenExchanger(new MockHandler([

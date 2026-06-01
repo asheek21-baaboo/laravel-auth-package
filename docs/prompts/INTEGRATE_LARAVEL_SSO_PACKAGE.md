@@ -20,7 +20,7 @@ You are integrating **company SSO** into an **internal Laravel tool** (HR portal
 | Namespace | `Baaboo\InternalToolComposerAuthPackage` |
 | Auth middleware | `company.auth` |
 | Guest middleware (JWT) | `company.guest` |
-| Guard | `Auth::guard('sso')` — table `users`, provider key `sso_users` |
+| Guard | `Auth::guard('sso')` — `App\Models\User`, provider key `users` |
 
 The package **owns** JWT validation, JWKS, OAuth callback, login redirect to the IdP, logout, token-expired UX, and cookie handling. **Do not reimplement** token parsing, signature verification, or duplicate auth routes.
 
@@ -244,7 +244,7 @@ CurrentUser::globalRole();
 
 Only after `company.auth` on the request.
 
-**Optional Spatie:** extend `Baaboo\InternalToolComposerAuthPackage\Models\SsoUser` in `App\Models\User` with `HasRoles`; point `config/permission.php` at your model. See INSTALLATION.md §12.
+**Optional Spatie:** add `HasRoles` to your app's `App\Models\User`; point `config/permission.php` at that model. See INSTALLATION.md §12.
 
 ---
 

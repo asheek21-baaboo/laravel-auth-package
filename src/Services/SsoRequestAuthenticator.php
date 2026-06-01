@@ -7,15 +7,15 @@ namespace Baaboo\InternalToolComposerAuthPackage\Services;
 use Baaboo\InternalToolComposerAuthPackage\CompanyAuth;
 use Baaboo\InternalToolComposerAuthPackage\CurrentUserService;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidTokenException;
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Support\TokenExtractor;
 use Baaboo\InternalToolComposerAuthPackage\TokenValidator;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Http\Request;
 use stdClass;
 
 /**
- * Validates the request JWT and resolves {@see SsoUser} (shared by auth + guest middleware).
+ * Validates the request JWT and resolves the application's User (shared by auth + guest middleware).
  */
 final class SsoRequestAuthenticator
 {
@@ -27,7 +27,7 @@ final class SsoRequestAuthenticator
     ) {}
 
     /**
-     * @return array{claims: stdClass, user: SsoUser}|null
+     * @return array{claims: stdClass, user: Authenticatable}|null
      */
     public function authenticate(Request $request): ?array
     {
@@ -47,7 +47,7 @@ final class SsoRequestAuthenticator
     }
 
     /**
-     * @return array{claims: stdClass, user: SsoUser}|null
+     * @return array{claims: stdClass, user: Authenticatable}|null
      */
     public function resolveFromClaims(stdClass $claims): ?array
     {
@@ -56,9 +56,9 @@ final class SsoRequestAuthenticator
             return null;
         }
 
-        $user = $this->auth->createUserProvider(CompanyAuth::SSO_USER_PROVIDER)->retrieveById($sub);
+        $user = $this->auth->createUserProvider(CompanyAuth::USER_PROVIDER)->retrieveById($sub);
 
-        if (! $user instanceof SsoUser) {
+        if (! $user instanceof Authenticatable) {
             return null;
         }
 
@@ -66,7 +66,7 @@ final class SsoRequestAuthenticator
     }
 
     /**
-     * @param  array{claims: stdClass, user: SsoUser}  $authenticated
+     * @param  array{claims: stdClass, user: Authenticatable}  $authenticated
      */
     public function applyToSession(array $authenticated): void
     {

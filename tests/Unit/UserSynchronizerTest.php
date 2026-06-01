@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\UserNotProvisionedException;
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
-use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
+use Baaboo\InternalToolComposerAuthPackage\Services\UserSynchronizer;
 use Illuminate\Support\Facades\Schema;
 
-test('syncFromClaims creates sso user from jwt claims', function () {
+test('syncFromClaims creates user from jwt claims', function () {
     $claims = (object) [
         'sub' => 'uuid-1',
         'email' => 'jane@company.test',
@@ -15,7 +15,7 @@ test('syncFromClaims creates sso user from jwt claims', function () {
         'createUser' => true,
     ];
 
-    $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+    $user = app(UserSynchronizer::class)->syncFromClaims($claims);
 
     expect($user->id)->toBe('uuid-1')
         ->and($user->email)->toBe('jane@company.test')
@@ -35,7 +35,7 @@ test('syncFromClaims uses email as name when name claim is missing', function ()
         'createUser' => true,
     ];
 
-    $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+    $user = app(UserSynchronizer::class)->syncFromClaims($claims);
 
     expect($user->name)->toBe('bob@company.test');
 });
@@ -55,14 +55,14 @@ test('syncFromClaims does not set name when users table has no name column', fun
         'createUser' => true,
     ];
 
-    $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+    $user = app(UserSynchronizer::class)->syncFromClaims($claims);
 
     expect($user->email)->toBe('no-name@company.test')
         ->and(array_key_exists('name', $user->getAttributes()))->toBeFalse();
 });
 
 test('syncFromClaims updates existing user on login', function () {
-    SsoUser::query()->create([
+    User::query()->create([
         'id' => 'uuid-3',
         'email' => 'old@company.test',
         'name' => 'Old Name',
@@ -75,15 +75,15 @@ test('syncFromClaims updates existing user on login', function () {
         'createUser' => true,
     ];
 
-    $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+    $user = app(UserSynchronizer::class)->syncFromClaims($claims);
 
     expect($user->email)->toBe('new@company.test')
         ->and($user->name)->toBe('New Name')
-        ->and(SsoUser::query()->count())->toBe(1);
+        ->and(User::query()->count())->toBe(1);
 });
 
 test('syncFromClaims does not update existing user when createUser is false', function () {
-    SsoUser::query()->create([
+    User::query()->create([
         'id' => 'uuid-5',
         'email' => 'unchanged@company.test',
         'name' => 'Unchanged',
@@ -96,7 +96,7 @@ test('syncFromClaims does not update existing user when createUser is false', fu
         'createUser' => false,
     ];
 
-    $user = app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+    $user = app(UserSynchronizer::class)->syncFromClaims($claims);
 
     expect($user->email)->toBe('unchanged@company.test')
         ->and($user->name)->toBe('Unchanged');
@@ -109,5 +109,5 @@ test('syncFromClaims throws when createUser is false and user does not exist', f
         'createUser' => false,
     ];
 
-    app(SsoUserSynchronizer::class)->syncFromClaims($claims);
+    app(UserSynchronizer::class)->syncFromClaims($claims);
 })->throws(UserNotProvisionedException::class);

@@ -9,5 +9,8 @@ parameters:
 
     bootstrapFiles:
         - vendor/autoload.php
-        
+
+    stubFiles:
+        - stubs/App/Models/User.stub
+
     treatPhpDocTypesAsCertain: false

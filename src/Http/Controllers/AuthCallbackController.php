@@ -10,7 +10,7 @@ use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidTokenException;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\UserNotProvisionedException;
 use Baaboo\InternalToolComposerAuthPackage\Services\CallbackJwtValidator;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
-use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
+use Baaboo\InternalToolComposerAuthPackage\Services\UserSynchronizer;
 use Baaboo\InternalToolComposerAuthPackage\Support\TokenCookie;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +21,7 @@ final class AuthCallbackController extends Controller
     public function __construct(
         private readonly IdpTokenExchanger $tokenExchanger,
         private readonly CallbackJwtValidator $callbackJwtValidator,
-        private readonly SsoUserSynchronizer $ssoUserSynchronizer,
+        private readonly UserSynchronizer $userSynchronizer,
     ) {}
 
     public function __invoke(Request $request): RedirectResponse
@@ -46,7 +46,7 @@ final class AuthCallbackController extends Controller
         }
 
         try {
-            $this->ssoUserSynchronizer->syncFromClaims($claims);
+            $this->userSynchronizer->syncFromClaims($claims);
         } catch (UserNotProvisionedException) {
             return redirect()->route('company-auth.error', ['stub' => 'user_not_provisioned']);
         }

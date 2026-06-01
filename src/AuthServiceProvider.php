@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Baaboo\InternalToolComposerAuthPackage;
 
 use Baaboo\InternalToolComposerAuthPackage\Auth\SsoJwtGuard;
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Services\CallbackJwtValidator;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoAuthorizationUrlBuilder;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoRequestAuthenticator;
-use Baaboo\InternalToolComposerAuthPackage\Services\SsoUserSynchronizer;
+use Baaboo\InternalToolComposerAuthPackage\Services\UserSynchronizer;
 use Baaboo\InternalToolComposerAuthPackage\Support\TokenExtractor;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Routing\Router;
@@ -32,7 +31,7 @@ final class AuthServiceProvider extends ServiceProvider
         $this->app->singleton(CurrentUserService::class);
         $this->app->singleton(IdpTokenExchanger::class);
         $this->app->singleton(CallbackJwtValidator::class);
-        $this->app->singleton(SsoUserSynchronizer::class);
+        $this->app->singleton(UserSynchronizer::class);
         $this->app->singleton(SsoRequestAuthenticator::class);
         $this->app->singleton(SsoAuthorizationUrlBuilder::class);
         $this->app->singleton(TokenExtractor::class);
@@ -74,12 +73,7 @@ final class AuthServiceProvider extends ServiceProvider
 
             $this->app['config']->set('auth.guards.'.CompanyAuth::SSO_GUARD, [
                 'driver' => 'sso-jwt',
-                'provider' => CompanyAuth::SSO_USER_PROVIDER,
-            ]);
-
-            $this->app['config']->set('auth.providers.'.CompanyAuth::SSO_USER_PROVIDER, [
-                'driver' => 'eloquent',
-                'model' => SsoUser::class,
+                'provider' => CompanyAuth::USER_PROVIDER,
             ]);
         });
     }

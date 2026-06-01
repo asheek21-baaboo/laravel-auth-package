@@ -121,12 +121,10 @@ sso-composer-auth-package/
 │   ├── TokenValidator.php             # JWKS fetch + cache + JWT verify
 │   ├── AuthMiddleware.php             # Registered as 'company.auth'
 │   ├── CurrentUserService.php         # Backed by resolved JWT claims
-│   ├── Models/
-│   │   └── SsoUser.php                # Eloquent model — table `users`, id = JWT sub
 │   ├── Auth/
 │   │   └── SsoJwtGuard.php            # Guard driver `sso-jwt`
 │   ├── Services/
-│   │   └── SsoUserSynchronizer.php    # Upsert `users` row on callback only
+│   │   └── UserSynchronizer.php       # Upsert `users` row on callback only
 │   ├── Facades/
 │   │   └── CurrentUser.php            # Facade over CurrentUserService
 │   └── Http/

@@ -4,30 +4,31 @@ declare(strict_types=1);
 
 namespace Baaboo\InternalToolComposerAuthPackage\Services;
 
+use App\Models\User;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\UserNotProvisionedException;
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Schema;
 use stdClass;
 
 /**
- * Syncs {@see SsoUser} from validated JWT claims (login / callback only).
+ * Syncs {@see User} from validated JWT claims (login / callback only).
  *
  * When `createUser` is true, creates or updates the local row; otherwise returns the existing row unchanged.
  *
  * @throws UserNotProvisionedException when createUser is false and no local row exists
  */
-final class SsoUserSynchronizer
+final class UserSynchronizer
 {
-    public function syncFromClaims(stdClass $claims): SsoUser
+    public function syncFromClaims(stdClass $claims): Authenticatable
     {
         $id = $claims->sub ?? null;
         if (! is_string($id) || $id === '') {
-            throw new \InvalidArgumentException('JWT claim "sub" is required to sync an SsoUser.');
+            throw new \InvalidArgumentException('JWT claim "sub" is required to sync a user.');
         }
 
         $email = $claims->email ?? null;
         if (! is_string($email) || $email === '') {
-            throw new \InvalidArgumentException('JWT claim "email" is required to sync an SsoUser.');
+            throw new \InvalidArgumentException('JWT claim "email" is required to sync a user.');
         }
 
         $name = $claims->name ?? null;
@@ -42,8 +43,8 @@ final class SsoUserSynchronizer
         }
 
         if ($claims->createUser === true) {
-            /** @var SsoUser $user */
-            $user = SsoUser::query()->updateOrCreate(
+            /** @var User $user */
+            $user = User::query()->updateOrCreate(
                 ['id' => $id],
                 $attributes,
             );
@@ -51,9 +52,9 @@ final class SsoUserSynchronizer
             return $user;
         }
 
-        $user = SsoUser::query()->find($id);
+        $user = User::query()->find($id);
 
-        if ($user === null) {
+        if (! $user instanceof Authenticatable) {
             throw UserNotProvisionedException::forSub($id);
         }
 
@@ -62,7 +63,7 @@ final class SsoUserSynchronizer
 
     private function tableHasColumn(string $column): bool
     {
-        $table = (new SsoUser)->getTable();
+        $table = (new User)->getTable();
 
         return Schema::hasTable($table) && Schema::hasColumn($table, $column);
     }

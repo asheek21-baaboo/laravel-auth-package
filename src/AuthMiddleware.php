@@ -43,9 +43,7 @@ class AuthMiddleware
         $authenticated = $this->authenticator->resolveFromClaims($claims);
 
         if ($authenticated === null) {
-            return response()->json([
-                'message' => 'User profile not found. Please sign in again via SSO.',
-            ], 401);
+            return redirect()->route('company-auth.error', ['stub' => 'sign_in_failed']);
         }
 
         $this->authenticator->applyToSession($authenticated);

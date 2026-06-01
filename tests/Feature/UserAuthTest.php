@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
+use App\Models\User;
 use Baaboo\InternalToolComposerAuthPackage\Tests\Support\TestJwt;
 use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Auth;
@@ -11,10 +11,10 @@ afterEach(function () {
     JWT::$timestamp = null;
 });
 
-test('Auth::guard(sso)->user() is set after company.auth with existing sso user', function () {
+test('Auth::guard(sso)->user() is set after company.auth with existing user', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
-    $this->seedSsoUser(
+    $this->seedUser(
         id: 'probe-subject',
         email: 'probe@company.test',
         name: 'Probe User',
@@ -31,13 +31,13 @@ test('Auth::guard(sso)->user() is set after company.auth with existing sso user'
 
     $user = Auth::guard('sso')->user();
 
-    expect($user)->toBeInstanceOf(SsoUser::class)
+    expect($user)->toBeInstanceOf(User::class)
         ->and($user->id)->toBe('probe-subject')
         ->and($user->email)->toBe('probe@company.test')
         ->and($user->name)->toBe('Probe User');
 });
 
-test('returns 401 when jwt is valid but sso user row is missing', function () {
+test('redirects to error page when jwt is valid but user row is missing', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
     $token = TestJwt::encode([
@@ -48,6 +48,5 @@ test('returns 401 when jwt is valid but sso user row is missing', function () {
 
     $this->withToken($token)
         ->getJson('/__auth_probe')
-        ->assertStatus(401)
-        ->assertJsonFragment(['message' => 'User profile not found. Please sign in again via SSO.']);
+        ->assertRedirect(route('company-auth.error', ['stub' => 'sign_in_failed']));
 });

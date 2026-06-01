@@ -334,15 +334,15 @@ if ($user !== null) {
 }
 ```
 
-The package registers the `sso` guard automatically. The auth provider config key is `sso_users` (historical name); the Eloquent model uses table **`users`**.
+The package registers the `sso` guard automatically. It uses the **`users`** auth provider and **`App\Models\User`**.
 
 | Constant | Value |
 |----------|--------|
 | `CompanyAuth::SSO_GUARD` | `sso` |
-| `CompanyAuth::SSO_USER_PROVIDER` | `sso_users` (provider key only) |
-| Database table | `users` |
+| `CompanyAuth::USER_PROVIDER` | `users` |
+| `CompanyAuth::USER_MODEL` | `App\Models\User` |
 
-These are fixed in code — not overridable via `company-auth.php`.
+Ensure `App\Models\User` is registered in `config/auth.php` and its primary key matches JWT `sub` (UUID string recommended).
 
 ---
 
@@ -374,20 +374,8 @@ Route::middleware(['web', 'company.auth'])->get('/me', MeController::class);
 ## 12. Optional: Spatie Laravel Permission
 
 1. Install Spatie in the consuming app and run its migrations (`roles`, `permissions`, pivots).
-2. Extend the package authenticatable (table `users`) in your app, e.g. `App\Models\User`:
-
-```php
-namespace App\Models;
-
-use Spatie\Permission\Traits\HasRoles;
-
-class User extends \Baaboo\InternalToolComposerAuthPackage\Models\SsoUser
-{
-    use HasRoles;
-}
-```
-
-3. Point Spatie’s permission config at your subclass:
+2. Add `HasRoles` to your existing `App\Models\User` (the same class registered in `config/auth.php`).
+3. Point Spatie’s permission config at that model:
 
 ```php
 // config/permission.php

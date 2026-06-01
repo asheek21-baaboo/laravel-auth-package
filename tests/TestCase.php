@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Baaboo\InternalToolComposerAuthPackage\Tests;
 
+use App\Models\User;
 use Baaboo\InternalToolComposerAuthPackage\AuthServiceProvider;
 use Baaboo\InternalToolComposerAuthPackage\Facades\CurrentUser;
 use Baaboo\InternalToolComposerAuthPackage\Http\Controllers\MeController;
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
 use Baaboo\InternalToolComposerAuthPackage\TokenValidator;
 use GuzzleHttp\Client;
@@ -60,12 +60,12 @@ abstract class TestCase extends OrchestraTestCase
         return $exchanger;
     }
 
-    protected function seedSsoUser(
+    protected function seedUser(
         string $id = 'test-user-id',
         string $email = 'jane@company.test',
         ?string $name = 'Jane Doe',
-    ): SsoUser {
-        return SsoUser::query()->create([
+    ): User {
+        return User::query()->create([
             'id' => $id,
             'email' => $email,
             'name' => $name,
@@ -95,6 +95,11 @@ abstract class TestCase extends OrchestraTestCase
         $app['config']->set('company-auth.project_id', 'hr-portal');
         $app['config']->set('company-auth.client_secret', 'test-client-secret');
         $app['config']->set('company-auth.redirect_after_login', '/');
+
+        $app['config']->set('auth.providers.users', [
+            'driver' => 'eloquent',
+            'model' => User::class,
+        ]);
 
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [

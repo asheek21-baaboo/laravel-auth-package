@@ -26,7 +26,7 @@ test('GET /login redirects to IdP authorize URL with project and callback params
 test('GET /login redirects authenticated users to redirect_after_login', function () {
     JWT::$timestamp = 2_000_000_000;
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
-    $this->seedSsoUser();
+    $this->seedUser();
     $token = TestJwt::encode(['iat' => 2_000_000_000, 'exp' => 2_000_000_900]);
 
     $this->withToken($token)

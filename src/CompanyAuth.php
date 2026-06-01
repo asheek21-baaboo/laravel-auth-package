@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Baaboo\InternalToolComposerAuthPackage;
 
-use Baaboo\InternalToolComposerAuthPackage\Models\SsoUser;
+use App\Models\User;
 
 /**
  * Fixed platform endpoints for the internal SSO IdP.
@@ -30,11 +30,14 @@ final class CompanyAuth
 
     public const ACCESS_TOKEN_TTL_SECONDS = 36_000;
 
-    /** Laravel guard for {@see SsoUser} (not configurable). */
+    /** Laravel guard for SSO-authenticated requests (not configurable). */
     public const SSO_GUARD = 'sso';
 
-    /** Auth provider key paired with {@see SSO_GUARD} (not configurable). */
-    public const SSO_USER_PROVIDER = 'sso_users';
+    /** Auth provider paired with {@see SSO_GUARD}. */
+    public const USER_PROVIDER = 'users';
+
+    /** Consuming application's Eloquent user model. */
+    public const USER_MODEL = User::class;
 
     /**
      * IdP base URL for JWKS fetch and issuer checks.

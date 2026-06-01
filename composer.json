@@ -29,7 +29,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Baaboo\\InternalToolComposerAuthPackage\\Tests\\": "tests/"
+            "Baaboo\\InternalToolComposerAuthPackage\\Tests\\": "tests/",
+            "App\\Models\\": "tests/Models/"
         }
     },
     "extra": {

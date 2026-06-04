@@ -10,7 +10,6 @@ use Baaboo\InternalToolComposerAuthPackage\Exceptions\InvalidTokenException;
 use Baaboo\InternalToolComposerAuthPackage\Exceptions\UserNotProvisionedException;
 use Baaboo\InternalToolComposerAuthPackage\Services\CallbackJwtValidator;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
-use Baaboo\InternalToolComposerAuthPackage\Services\OAuthStateManager;
 use Baaboo\InternalToolComposerAuthPackage\Services\UserSynchronizer;
 use Baaboo\InternalToolComposerAuthPackage\Support\TokenCookie;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +19,6 @@ use Illuminate\Routing\Controller;
 final class AuthCallbackController extends Controller
 {
     public function __construct(
-        private readonly OAuthStateManager $oauthState,
         private readonly IdpTokenExchanger $tokenExchanger,
         private readonly CallbackJwtValidator $callbackJwtValidator,
         private readonly UserSynchronizer $userSynchronizer,
@@ -28,11 +26,6 @@ final class AuthCallbackController extends Controller
 
     public function __invoke(Request $request): RedirectResponse
     {
-        $receivedState = (string) $request->query('state', '');
-        if (! $this->oauthState->validateAndConsume($receivedState)) {
-            abort(403, 'Invalid OAuth state.');
-        }
-
         $code = $request->query('code');
 
         if (! is_string($code) || $code === '') {

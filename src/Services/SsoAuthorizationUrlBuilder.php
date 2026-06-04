@@ -11,10 +11,6 @@ use Baaboo\InternalToolComposerAuthPackage\CompanyAuth;
  */
 final class SsoAuthorizationUrlBuilder
 {
-    public function __construct(
-        private readonly OAuthStateManager $oauthState,
-    ) {}
-
     public function authorizeUrl(): string
     {
         $projectId = config('company-auth.project_id');
@@ -32,7 +28,6 @@ final class SsoAuthorizationUrlBuilder
             'redirect_uri' => route('company-auth.callback'),
             'response_type' => 'code',
             'project_id' => $projectId,
-            'state' => $this->oauthState->issue(),
         ]);
 
         return CompanyAuth::idpUrl().CompanyAuth::OAUTH_AUTHORIZE_PATH.'?'.$query;

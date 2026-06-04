@@ -143,7 +143,7 @@ Implement in `packages/core/src/constants.ts`:
 | `JWKS_PATH` | `/.well-known/jwks.json` | |
 | `TOKEN_EXCHANGE_PATH` | `/oauth/token` | POST JSON |
 | `OAUTH_AUTHORIZE_PATH` | `/oauth/authorize` | Browser login redirect |
-| `IDP_LOGOUT_PATH` | `/logout` | Global IdP logout |
+| `OAUTH_SESSION_END_PATH` | `/oauth/session/end` | IdP session end (`Authorization: Bearer` JWT) |
 | `JWKS_CACHE_TTL_SECONDS` | `3600` | |
 | `TOKEN_COOKIE_NAME` | `token` | httpOnly |
 | `TOKEN_COOKIE_MAX_AGE_SECONDS` | `36000` | 10 hours (= 600 min) |
@@ -167,7 +167,7 @@ Consuming apps must set `NODE_ENV=local` or `development` for local IdP override
 | `SSO_CLIENT_ID` | No | `clientId` | Defaults to `SSO_PROJECT_ID` |
 | `SSO_REDIRECT_AFTER_LOGIN` | No | `redirectAfterLogin` | Default `/`; guest redirect when already logged in |
 | `SSO_REDIRECT_AFTER_LOGOUT` | No | `redirectAfterLogout` | Default `/login` when IdP logout disabled |
-| `SSO_REDIRECT_TO_IDP_LOGOUT` | No | `redirectToIdpLogout` | Default `true` — POST logout → IdP `/logout` |
+| `SSO_REDIRECT_TO_IDP_LOGOUT` | No | `redirectToIdpLogout` | Default `true` — POST logout JWT to IdP `/oauth/session/end` |
 | `IDP_URL` | Local only | `idpUrl` | Override IdP base URL |
 | `NODE_ENV` | — | `nodeEnv` | `local` / `development` enables `IDP_URL` override |
 
@@ -531,7 +531,7 @@ Return `` `${idpUrl(config)}${OAUTH_AUTHORIZE_PATH}?${query}` ``.
 
 ### 9.4 `buildLogoutUrl(config): string`
 
-`` `${idpUrl(config)}${IDP_LOGOUT_PATH}` ``
+`` POST `${idpUrl(config)}${OAUTH_SESSION_END_PATH}` `` with header `Authorization: Bearer <accessToken>` (same as PHP `IdpSessionEndClient`)
 
 ### 9.5 `IdpTokenExchanger`
 

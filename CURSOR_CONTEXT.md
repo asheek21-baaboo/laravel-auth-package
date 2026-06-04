@@ -56,7 +56,7 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | Sync local user profile on login | Profile upsert on `GET /oauth/callback` (`users` table) |
 | `users` migration (non-destructive when table already exists) | `database/migrations/*_ensure_users_table_for_company_auth.php` |
 | `GET /login` | `AuthLoginController` — redirect to IdP OAuth authorize (`company.guest`) |
-| `POST /logout` | `AuthLogoutController` — clear cookie, optional IdP logout |
+| `POST /logout` | `AuthLogoutController` — clear cookie, POST JWT to IdP `/oauth/session/end` (Bearer), redirect locally |
 | `company.guest` middleware | JWT-aware “guest” — redirect authenticated users away from login |
 | `GET /oauth/token-expired` | `TokenExpiredController` — HTML page with link to `login` |
 | `GET /oauth/error` | `ErrorController` — shared error view; `stub` → `config('company-auth.errors')` (`message`, `description`, `fallback`) |
@@ -336,6 +336,7 @@ See **[docs/SECURE_DEFAULTS.md](docs/SECURE_DEFAULTS.md)** for cookie flags, CSR
 | `CompanyAuth::idpUrl()` | `https://auth.company.com` in non-local; `config('company-auth.idp_url')` when `APP_ENV=local` | JWKS fetch + issuer checks — use this in app code |
 | `CompanyAuth::IDP_URL` | `https://auth.company.com` | Production IdP base URL (constant) |
 | `CompanyAuth::JWKS_PATH` | `/.well-known/jwks.json` | OIDC JWKS discovery path (fixed) |
+| `CompanyAuth::OAUTH_SESSION_END_PATH` | `/oauth/session/end` | IdP session end (`Authorization: Bearer` JWT) |
 | `CompanyAuth::JWKS_CACHE_TTL` | `3600` | Seconds to cache JWKS keys in the app cache store |
 
 ### Environment variables

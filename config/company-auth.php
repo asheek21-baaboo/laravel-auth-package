@@ -35,8 +35,11 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    /** When true, logout redirects to the IdP global logout URL (clears portal session). */
+    /** When true, logout POSTs the user's JWT to IdP `/oauth/session/end` (Bearer token). */
     'redirect_to_idp_logout' => env('SSO_REDIRECT_TO_IDP_LOGOUT', true),
+
+    /** Browser redirect after logout when IdP session end is enabled (default `/login`). */
+    'redirect_after_logout' => env('SSO_REDIRECT_AFTER_LOGOUT', '/login'),
 
     /*
     |--------------------------------------------------------------------------

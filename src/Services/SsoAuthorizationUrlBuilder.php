@@ -32,9 +32,4 @@ final class SsoAuthorizationUrlBuilder
 
         return CompanyAuth::idpUrl().CompanyAuth::OAUTH_AUTHORIZE_PATH.'?'.$query;
     }
-
-    public function logoutUrl(): string
-    {
-        return CompanyAuth::idpUrl().CompanyAuth::IDP_LOGOUT_PATH;
-    }
 }

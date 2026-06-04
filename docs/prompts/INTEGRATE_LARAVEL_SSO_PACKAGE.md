@@ -144,7 +144,8 @@ php artisan config:clear
 | `SSO_CLIENT_SECRET` | Server-side OAuth code exchange |
 | `SSO_CLIENT_ID` | Defaults to `SSO_PROJECT_ID` if omitted |
 | `SSO_REDIRECT_AFTER_LOGIN` | Post-callback redirect; also used by `company.guest` |
-| `SSO_REDIRECT_TO_IDP_LOGOUT` | `true` → IdP logout URL; `false` → package error page `logged_out` stub |
+| `SSO_REDIRECT_TO_IDP_LOGOUT` | `true` → server POST to IdP `/oauth/session/end` with Bearer JWT; `false` → package error page `logged_out` stub |
+| `SSO_REDIRECT_AFTER_LOGOUT` | `/login` | Local redirect after logout when IdP session end is enabled |
 | `IDP_URL` | Local only — overrides production IdP base when `APP_ENV=local` |
 
 Tell the human to register the app on the IdP with:

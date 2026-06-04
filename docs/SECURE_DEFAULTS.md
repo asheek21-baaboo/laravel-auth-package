@@ -465,11 +465,11 @@ Http::withToken($serviceJwt)
 | Step | Action |
 |------|--------|
 | 1 | Clear `token` cookie — `expire` in the past, same `Path`/`Domain` as when set |
-| 2 | Optionally redirect to IdP global logout to clear portal session |
+| 2 | Optionally POST the user's JWT to IdP `/oauth/session/end` (`Authorization: Bearer …`) |
 
 ```php
-return redirect('https://auth.company.com/logout')
-    ->withoutCookie('token');
+// Server-side from AuthLogoutController — not a browser redirect
+Http::withToken($accessToken)->post('https://auth.company.com/oauth/session/end');
 ```
 
 Voluntary logout does not replace §8 — offboarding must still run the IdP fan-out.

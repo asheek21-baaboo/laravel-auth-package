@@ -19,7 +19,8 @@ final class CompanyAuth
 
     public const OAUTH_AUTHORIZE_PATH = '/oauth/authorize';
 
-    public const IDP_LOGOUT_PATH = '/logout';
+    /** Browser redirect to end the IdP OAuth session (portal SSO logout). */
+    public const OAUTH_SESSION_END_PATH = '/oauth/session/end';
 
     public const JWKS_CACHE_TTL = 3600;
 

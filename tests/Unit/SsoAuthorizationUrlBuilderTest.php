@@ -11,8 +11,3 @@ test('authorizeUrl builds IdP oauth authorize query', function () {
         ->and($url)->toContain('client_id=hr-portal')
         ->and($url)->toContain('project_id=hr-portal');
 });
-
-test('logoutUrl points to IdP logout path', function () {
-    expect(app(SsoAuthorizationUrlBuilder::class)->logoutUrl())
-        ->toBe('https://auth.test/logout');
-});

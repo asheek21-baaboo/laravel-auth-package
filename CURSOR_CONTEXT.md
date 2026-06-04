@@ -53,9 +53,9 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | Accept IdP revoke calls (`POST /auth/revoke`, service JWT, per-app `aud`) | **Planned** — see `docs/SECURE_DEFAULTS.md` §8 |
 | Enforce `sub` / `jti` revocation blacklist on user requests | **Planned** — `AuthMiddleware` after JWT verify |
 | Expose current user to controllers | `CurrentUser` facade + `Auth::guard('sso')->user()` (`users` table) |
-| Sync local user profile on login | Profile upsert on `GET /oauth/callback` (`users` table) |
+| Sync local user profile on login | Profile upsert on `GET /oauth/callback` (`users` table); validates OAuth `state` before code exchange |
 | `users` migration (non-destructive when table already exists) | `database/migrations/*_ensure_users_table_for_company_auth.php` |
-| `GET /login` | `AuthLoginController` — redirect to IdP OAuth authorize (`company.guest`) |
+| `GET /login` | `AuthLoginController` — redirect to IdP OAuth authorize with session `state` (`company.guest`) |
 | `POST /logout` | `AuthLogoutController` — clear cookie, POST JWT to IdP `/oauth/session/end` (Bearer), redirect locally |
 | `company.guest` middleware | JWT-aware “guest” — redirect authenticated users away from login |
 | `GET /oauth/token-expired` | `TokenExpiredController` — HTML page with link to `login` |

@@ -9,6 +9,7 @@ use Baaboo\InternalToolComposerAuthPackage\AuthServiceProvider;
 use Baaboo\InternalToolComposerAuthPackage\Facades\CurrentUser;
 use Baaboo\InternalToolComposerAuthPackage\Http\Controllers\MeController;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
+use Baaboo\InternalToolComposerAuthPackage\Services\OAuthStateManager;
 use Baaboo\InternalToolComposerAuthPackage\TokenValidator;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
@@ -58,6 +59,14 @@ abstract class TestCase extends OrchestraTestCase
         $this->app->instance(IdpTokenExchanger::class, $exchanger);
 
         return $exchanger;
+    }
+
+    protected function putOAuthStateInSession(string $state = 'test-oauth-state-40-characters-long'): string
+    {
+        $this->startSession();
+        session()->put(OAuthStateManager::SESSION_KEY, $state);
+
+        return $state;
     }
 
     protected function seedUser(

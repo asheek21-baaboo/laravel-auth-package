@@ -22,11 +22,14 @@ test('GET /login redirects to IdP authorize URL with project and callback params
 
     $response->assertRedirect();
     $target = $response->headers->get('Location');
+    parse_str((string) parse_url((string) $target, PHP_URL_QUERY), $query);
+
     expect($target)->toStartWith('https://auth.test/oauth/authorize?')
-        ->and($target)->toContain('client_id=hr-portal')
-        ->and($target)->toContain('response_type=code')
-        ->and($target)->toContain('project_id=hr-portal')
-        ->and($target)->toContain(urlencode(route('company-auth.callback')));
+        ->and($query['client_id'])->toBe('hr-portal')
+        ->and($query['response_type'])->toBe('code')
+        ->and($query['project_id'])->toBe('hr-portal')
+        ->and($query['redirect_uri'])->toBe(route('company-auth.callback'))
+        ->and($query['state'])->toHaveLength(40);
 });
 
 test('GET /login redirects authenticated users to redirect_after_login', function () {

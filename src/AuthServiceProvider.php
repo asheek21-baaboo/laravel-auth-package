@@ -8,6 +8,7 @@ use Baaboo\InternalToolComposerAuthPackage\Auth\SsoJwtGuard;
 use Baaboo\InternalToolComposerAuthPackage\Services\CallbackJwtValidator;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpSessionEndClient;
 use Baaboo\InternalToolComposerAuthPackage\Services\IdpTokenExchanger;
+use Baaboo\InternalToolComposerAuthPackage\Services\OAuthStateManager;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoAuthorizationUrlBuilder;
 use Baaboo\InternalToolComposerAuthPackage\Services\SsoRequestAuthenticator;
 use Baaboo\InternalToolComposerAuthPackage\Services\UserSynchronizer;
@@ -32,6 +33,7 @@ final class AuthServiceProvider extends ServiceProvider
         $this->app->singleton(CurrentUserService::class);
         $this->app->singleton(IdpTokenExchanger::class);
         $this->app->singleton(IdpSessionEndClient::class);
+        $this->app->singleton(OAuthStateManager::class);
         $this->app->singleton(CallbackJwtValidator::class);
         $this->app->singleton(UserSynchronizer::class);
         $this->app->singleton(SsoRequestAuthenticator::class);

@@ -8,8 +8,8 @@ use RuntimeException;
 
 final class UserNotProvisionedException extends RuntimeException
 {
-    public static function forSub(string $sub): self
+    public static function forEmail(string $email): self
     {
-        return new self("No local user exists for sub \"{$sub}\" and createUser is false.");
+        return new self("No local user exists for email \"{$email}\" and createUser is false.");
     }
 }

@@ -13,6 +13,8 @@ use stdClass;
 /**
  * Syncs {@see User} from validated JWT claims (login / callback only).
  *
+ * Matches and upserts by {@see email} only — primary key (`id`) is owned by the consuming app.
+ *
  * When `createUser` is true, creates or updates the local row; otherwise returns the existing row unchanged.
  *
  * @throws UserNotProvisionedException when createUser is false and no local row exists
@@ -21,11 +23,6 @@ final class UserSynchronizer
 {
     public function syncFromClaims(stdClass $claims): Authenticatable
     {
-        $id = $claims->sub ?? null;
-        if (! is_string($id) || $id === '') {
-            throw new \InvalidArgumentException('JWT claim "sub" is required to sync a user.');
-        }
-
         $email = $claims->email ?? null;
         if (! is_string($email) || $email === '') {
             throw new \InvalidArgumentException('JWT claim "email" is required to sync a user.');
@@ -45,17 +42,17 @@ final class UserSynchronizer
         if ($claims->createUser === true) {
             /** @var User $user */
             $user = User::query()->updateOrCreate(
-                ['id' => $id],
+                ['email' => $email],
                 $attributes,
             );
 
             return $user;
         }
 
-        $user = User::query()->find($id);
+        $user = User::query()->where('email', $email)->first();
 
         if (! $user instanceof Authenticatable) {
-            throw UserNotProvisionedException::forSub($id);
+            throw UserNotProvisionedException::forEmail($email);
         }
 
         return $user;

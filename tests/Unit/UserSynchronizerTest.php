@@ -17,12 +17,11 @@ test('syncFromClaims creates user from jwt claims', function () {
 
     $user = app(UserSynchronizer::class)->syncFromClaims($claims);
 
-    expect($user->id)->toBe('uuid-1')
-        ->and($user->email)->toBe('jane@company.test')
-        ->and($user->name)->toBe('Jane Doe');
+    expect($user->email)->toBe('jane@company.test')
+        ->and($user->name)->toBe('Jane Doe')
+        ->and($user->id)->not->toBeEmpty();
 
     $this->assertDatabaseHas('users', [
-        'id' => 'uuid-1',
         'email' => 'jane@company.test',
         'name' => 'Jane Doe',
     ]);
@@ -61,23 +60,46 @@ test('syncFromClaims does not set name when users table has no name column', fun
         ->and(array_key_exists('name', $user->getAttributes()))->toBeFalse();
 });
 
-test('syncFromClaims updates existing user on login', function () {
+test('syncFromClaims updates existing user matched by email without changing id', function () {
     User::query()->create([
-        'id' => 'uuid-3',
-        'email' => 'old@company.test',
+        'id' => 'old-uuid',
+        'email' => 'jonas.meyer@seed.local',
         'name' => 'Old Name',
     ]);
 
     $claims = (object) [
-        'sub' => 'uuid-3',
-        'email' => 'new@company.test',
+        'sub' => 'new-uuid-from-idp',
+        'email' => 'jonas.meyer@seed.local',
+        'name' => 'Jonas Meyer',
+        'createUser' => true,
+    ];
+
+    $user = app(UserSynchronizer::class)->syncFromClaims($claims);
+
+    expect($user->id)->toBe('old-uuid')
+        ->and($user->email)->toBe('jonas.meyer@seed.local')
+        ->and($user->name)->toBe('Jonas Meyer')
+        ->and(User::query()->count())->toBe(1);
+});
+
+test('syncFromClaims updates name for existing user on login', function () {
+    User::query()->create([
+        'id' => 'uuid-3',
+        'email' => 'jane@company.test',
+        'name' => 'Old Name',
+    ]);
+
+    $claims = (object) [
+        'sub' => 'any-sub',
+        'email' => 'jane@company.test',
         'name' => 'New Name',
         'createUser' => true,
     ];
 
     $user = app(UserSynchronizer::class)->syncFromClaims($claims);
 
-    expect($user->email)->toBe('new@company.test')
+    expect($user->id)->toBe('uuid-3')
+        ->and($user->email)->toBe('jane@company.test')
         ->and($user->name)->toBe('New Name')
         ->and(User::query()->count())->toBe(1);
 });
@@ -90,8 +112,8 @@ test('syncFromClaims does not update existing user when createUser is false', fu
     ]);
 
     $claims = (object) [
-        'sub' => 'uuid-5',
-        'email' => 'new@company.test',
+        'sub' => 'different-sub',
+        'email' => 'unchanged@company.test',
         'name' => 'New Name',
         'createUser' => false,
     ];

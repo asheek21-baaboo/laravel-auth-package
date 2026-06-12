@@ -51,12 +51,13 @@ final class SsoRequestAuthenticator
      */
     public function resolveFromClaims(stdClass $claims): ?array
     {
-        $sub = $claims->sub ?? null;
-        if (! is_string($sub) || $sub === '') {
+        $email = $claims->email ?? null;
+        if (! is_string($email) || $email === '') {
             return null;
         }
 
-        $user = $this->auth->createUserProvider(CompanyAuth::USER_PROVIDER)->retrieveById($sub);
+        $user = $this->auth->createUserProvider(CompanyAuth::USER_PROVIDER)
+            ->retrieveByCredentials(['email' => $email]);
 
         if (! $user instanceof Authenticatable) {
             return null;

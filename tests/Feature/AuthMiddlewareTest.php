@@ -10,12 +10,11 @@ afterEach(function () {
     JWT::$timestamp = null;
 });
 
-test('returns 401 when no token is present (no cookie, no header)', function () {
+test('redirects to unauthenticated error page when no token is present', function () {
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
 
     $this->getJson('/__auth_probe')
-        ->assertStatus(401)
-        ->assertJson(['message' => 'Unauthenticated.']);
+        ->assertRedirect(route('company-auth.error', ['stub' => 'unauthenticated']));
 });
 
 test('returns 401 with message when token is expired (JSON request)', function () {

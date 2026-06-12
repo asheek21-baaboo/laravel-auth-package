@@ -36,26 +36,8 @@ final class AuthLogoutController extends Controller
 
         $forgetCookie = TokenCookie::forget();
 
-        if (config('company-auth.redirect_to_idp_logout', true)) {
-            return $this->redirectAfterLogout()->withCookie($forgetCookie);
-        }
-
         return redirect()
             ->route('company-auth.error', ['stub' => 'logged_out'])
             ->withCookie($forgetCookie);
-    }
-
-    private function redirectAfterLogout(): RedirectResponse
-    {
-        $afterLogout = config('company-auth.redirect_after_logout', '/login');
-        if (! is_string($afterLogout) || $afterLogout === '') {
-            $afterLogout = '/login';
-        }
-
-        if (str_starts_with($afterLogout, 'http')) {
-            return redirect()->away($afterLogout);
-        }
-
-        return redirect($afterLogout);
     }
 }

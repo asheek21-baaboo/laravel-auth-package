@@ -141,9 +141,7 @@ Add these to the consuming app’s `.env`. Use the **`SSO_*`** names (they map t
 |----------|---------|---------|
 | `SSO_CLIENT_ID` | Same as `SSO_PROJECT_ID` | OAuth `client_id` sent to IdP token endpoint |
 | `SSO_REDIRECT_AFTER_LOGIN` | `/` | Path after callback **and** when `company.guest` sees an existing session |
-| `SSO_REDIRECT_AFTER_LOGOUT` | `/login` | Path when `SSO_REDIRECT_TO_IDP_LOGOUT=false` |
-| `SSO_REDIRECT_TO_IDP_LOGOUT` | `true` | POST user's JWT to IdP `/oauth/session/end` (Bearer token) |
-| `SSO_REDIRECT_AFTER_LOGOUT` | `/login` | Local redirect after logout when IdP session end is enabled |
+| `SSO_REDIRECT_TO_IDP_LOGOUT` | `true` | POST user's JWT to IdP `/oauth/session/end` (Bearer token); always redirects to `logged_out` error page |
 | `IDP_URL` | `http://baaboo-sso.test` in config | **Local only** — IdP base URL when `APP_ENV=local` |
 
 ### Example `.env` block

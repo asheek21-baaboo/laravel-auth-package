@@ -9,12 +9,11 @@ afterEach(function () {
     JWT::$timestamp = null;
 });
 
-test('GET /me returns 401 when unauthenticated', function () {
+test('GET /me redirects to unauthenticated error page when no token', function () {
     $this->swapTokenValidatorWithJwks(TestJwt::jwks());
 
     $this->getJson('/me')
-        ->assertStatus(401)
-        ->assertJson(['message' => 'Unauthenticated.']);
+        ->assertRedirect(route('company-auth.error', ['stub' => 'unauthenticated']));
 });
 
 test('GET /me returns 200 with correct shape when authenticated', function () {

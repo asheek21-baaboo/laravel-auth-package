@@ -39,3 +39,10 @@ test('GET /oauth/error renders logged_out copy', function () {
         ->assertSee('Logged out', false)
         ->assertSee('You have been logged out. Please log in again.', false);
 });
+
+test('GET /oauth/error renders unauthenticated copy', function () {
+    $this->get('/oauth/error?stub=unauthenticated')
+        ->assertOk()
+        ->assertSee('Unauthenticated', false)
+        ->assertSee('Please log in to continue.', false);
+});

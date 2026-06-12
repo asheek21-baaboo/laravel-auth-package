@@ -25,7 +25,7 @@ class AuthMiddleware
         $token = $this->tokenExtractor->fromRequest($request);
 
         if ($token === null) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return redirect()->route('company-auth.error', ['stub' => 'unauthenticated']);
         }
 
         try {

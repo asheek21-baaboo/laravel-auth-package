@@ -166,8 +166,7 @@ Consuming apps must set `NODE_ENV=local` or `development` for local IdP override
 | `SSO_CLIENT_SECRET` | Yes | `clientSecret` | Code exchange |
 | `SSO_CLIENT_ID` | No | `clientId` | Defaults to `SSO_PROJECT_ID` |
 | `SSO_REDIRECT_AFTER_LOGIN` | No | `redirectAfterLogin` | Default `/`; guest redirect when already logged in |
-| `SSO_REDIRECT_AFTER_LOGOUT` | No | `redirectAfterLogout` | Default `/login` when IdP logout disabled |
-| `SSO_REDIRECT_TO_IDP_LOGOUT` | No | `redirectToIdpLogout` | Default `true` — POST logout JWT to IdP `/oauth/session/end` |
+| `SSO_REDIRECT_TO_IDP_LOGOUT` | No | `redirectToIdpLogout` | Default `true` — POST logout JWT to IdP `/oauth/session/end`; always redirect to `logged_out` error page |
 | `IDP_URL` | Local only | `idpUrl` | Override IdP base URL |
 | `NODE_ENV` | — | `nodeEnv` | `local` / `development` enables `IDP_URL` override |
 
@@ -378,7 +377,6 @@ export interface CompanyAuthConfig {
   clientId: string;
   clientSecret: string;
   redirectAfterLogin: string;
-  redirectAfterLogout: string;
   redirectToIdpLogout: boolean;
   idpUrl: string;
   nodeEnv: string;
@@ -599,8 +597,8 @@ JWT-aware guest (replaces framework `guest` — does not read session):
 
 1. Clear `req.auth` if present
 2. `Set-Cookie` clear `token` (`clearTokenCookie`)
-3. If `redirectToIdpLogout` (default `true`): `302` to `buildLogoutUrl(config)`
-4. Else: `302` to `redirectAfterLogout` (default `/login`)
+3. If `redirectToIdpLogout` (default `true`): POST JWT to IdP `/oauth/session/end`
+4. `302` to `/oauth/error?stub=logged_out`
 
 ### 9.12 Callback handler (`handleOAuthCallback`)
 

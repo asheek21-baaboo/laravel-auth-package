@@ -40,7 +40,7 @@ test('GET /login redirects authenticated users to redirect_after_login', functio
         ->assertRedirect('/');
 });
 
-test('POST /logout calls IdP session end with Bearer token and redirects to login', function () {
+test('POST /logout calls IdP session end with Bearer token and redirects to logged_out page', function () {
     $this->withoutMiddleware(ValidateCsrfToken::class);
 
     $history = [];
@@ -58,7 +58,7 @@ test('POST /logout calls IdP session end with Bearer token and redirects to logi
 
     $response = $this->withToken($token)->post('/logout');
 
-    $response->assertRedirect('/login');
+    $response->assertRedirect(route('company-auth.error', ['stub' => 'logged_out']));
     $response->assertCookieExpired(CompanyAuth::TOKEN_COOKIE_NAME);
     expect($history)->toHaveCount(1);
     expect($history[0]['request']->getHeaderLine('Authorization'))->toBe('Bearer '.$token);
@@ -76,13 +76,13 @@ test('POST /logout skips IdP session end when no token is present', function () 
     ));
 
     $this->post('/logout')
-        ->assertRedirect('/login')
+        ->assertRedirect(route('company-auth.error', ['stub' => 'logged_out']))
         ->assertCookieExpired(CompanyAuth::TOKEN_COOKIE_NAME);
 
     expect($history)->toHaveCount(0);
 });
 
-test('POST /logout redirects to error page when IdP logout is disabled', function () {
+test('POST /logout skips IdP session end when IdP logout is disabled', function () {
     $this->withoutMiddleware(ValidateCsrfToken::class);
     config(['company-auth.redirect_to_idp_logout' => false]);
 

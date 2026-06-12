@@ -58,7 +58,7 @@ Implemented — see **SECURE_DEFAULTS.md §9** and **INSTALLATION.md**.
 - [x] `AuthLogoutController` — `POST /logout` (`logout`)
 - [x] Clear `token` cookie + `SsoJwtGuard::logout()`
 - [x] Optional IdP logout (`SSO_REDIRECT_TO_IDP_LOGOUT`, default `true`)
-- [x] `SSO_REDIRECT_AFTER_LOGOUT` when IdP logout disabled
+- [x] Logout always redirects to `logged_out` error page (removed `SSO_REDIRECT_AFTER_LOGOUT`)
 
 ---
 

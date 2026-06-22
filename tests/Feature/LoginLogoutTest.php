@@ -17,16 +17,9 @@ afterEach(function () {
     JWT::$timestamp = null;
 });
 
-test('GET /login redirects to IdP authorize URL with project and callback params', function () {
-    $response = $this->get('/login');
-
-    $response->assertRedirect();
-    $target = $response->headers->get('Location');
-    expect($target)->toStartWith('https://auth.test/oauth/authorize?')
-        ->and($target)->toContain('client_id=hr-portal')
-        ->and($target)->toContain('response_type=code')
-        ->and($target)->toContain('project_id=hr-portal')
-        ->and($target)->toContain(urlencode(route('company-auth.callback')));
+test('GET /login redirects unauthenticated users to the unauthenticated error page', function () {
+    $this->get('/login')
+        ->assertRedirect(route('company-auth.error', ['stub' => 'unauthenticated']));
 });
 
 test('GET /login redirects authenticated users to redirect_after_login', function () {

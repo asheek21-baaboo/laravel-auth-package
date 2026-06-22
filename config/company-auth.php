@@ -70,7 +70,7 @@ return [
         ],
         'unauthenticated' => [
             'message' => 'Unauthenticated',
-            'description' => 'Please log in to continue.',
+            'description' => 'Please log in again.',
         ],
     ],
 

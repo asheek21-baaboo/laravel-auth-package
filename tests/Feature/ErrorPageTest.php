@@ -44,5 +44,5 @@ test('GET /oauth/error renders unauthenticated copy', function () {
     $this->get('/oauth/error?stub=unauthenticated')
         ->assertOk()
         ->assertSee('Unauthenticated', false)
-        ->assertSee('Please log in to continue.', false);
+        ->assertSee('Please log in again.', false);
 });

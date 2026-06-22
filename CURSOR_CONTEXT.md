@@ -55,7 +55,7 @@ The package eliminates per-project auth boilerplate. A developer integrating a n
 | Expose current user to controllers | `CurrentUser` facade + `Auth::guard('sso')->user()` (`users` table) |
 | Sync local user profile on login | Profile upsert on `GET /oauth/callback` by **email** (`users.id` owned by consuming app) |
 | `users` migration (non-destructive when table already exists) | `database/migrations/*_ensure_users_table_for_company_auth.php` |
-| `GET /login` | `AuthLoginController` — redirect to IdP OAuth authorize (`company.guest`) |
+| `GET /login` | `AuthLoginController` — redirect to `company-auth.error?stub=unauthenticated` (`company.guest`) |
 | `POST /logout` | `AuthLogoutController` — clear cookie, POST JWT to IdP `/oauth/session/end` (Bearer), redirect to `logged_out` error page |
 | `company.guest` middleware | JWT-aware “guest” — redirect authenticated users away from login |
 | `GET /oauth/token-expired` | `TokenExpiredController` — HTML page with link to `login` |

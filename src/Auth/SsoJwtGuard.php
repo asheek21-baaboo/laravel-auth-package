@@ -34,11 +34,9 @@ final class SsoJwtGuard implements Guard
         return $this->user;
     }
 
-    public function id(): ?string
+    public function id(): int|string|null
     {
-        $id = $this->user()?->getAuthIdentifier();
-
-        return is_string($id) ? $id : null;
+        return $this->user()?->getAuthIdentifier();
     }
 
     public function validate(array $credentials = []): bool
